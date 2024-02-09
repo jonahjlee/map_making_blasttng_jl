@@ -1,0 +1,9 @@
+These are 600 KID maps.
+
+A is amplitude: np.sqrt(I**2 + Q**2).
+P is phase: np.arctan2(Q, I).
+DF is delta frequency (proportional to incident power), calculated in the gradient method.
+
+Note that the KIDs are combined by summing all data points that fall in a map pixel bin and then dividing each pixel sum by the amount of KIDs that contributed to that pixel.
+
+
