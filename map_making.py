@@ -15,14 +15,10 @@ import time
 import logging
 import numpy as np
 import re
-import sys
-from matplotlib import pyplot as plt
 from scipy.ndimage import shift
 from scipy.optimize import curve_fit
 from scipy.ndimage import gaussian_filter
-from scipy.interpolate import interp1d
 import numba as nb
-import cProfile
 import warnings
 
 
@@ -38,6 +34,11 @@ roach = 1
 # kid_ref = '0070' # roach 3
 kid_ref = '0100' # roach 1
 
+# loaded shifts transforms
+# (scale x, offset x, scale y, offset y)
+shift_trans = (0.0004, 4, 0.00075, 7) 
+# NOTE: The offsets are dependent on the ref kid
+
 # ra and dec conversion factors
 conv_ra  = 5.5879354e-09
 conv_dec = 8.38190317e-08
@@ -45,25 +46,27 @@ conv_dec = 8.38190317e-08
 # initial and final data indices to use for this map
 # this should be object RCW 92
 # slice_i = 37141250 # roach 3
-# slice_f = 37734400 # roach 3
+# slice_f = 37657540 # roach 3; no lamp; 37734400 w/ lamp
 slice_i = 37125750 # roach 1
-slice_f = 37718610 # roach 1
+slice_f = 37641750 # roach 1; no lamp; 37718610 w/ lamp
 
 # map bin sizes to use (determines final resolution)
-ra_bin  = 0.001
-dec_bin = 0.015
+ra_bin  = 0.001 # degrees -> 3.6"
+dec_bin = 0.001 # 0.015
 
 # declare directories
 dir_root   = '/media/player1/blast2020fc1/fc1/converted'
 dir_master = dir_root + '/master_2020-01-06-06-21-22/'
+dir_shifts = dir_root + '/shifts/'
 
 # roach 3
 # dir_roach  = dir_root + f'/roach{roach}_2020-01-06-06-21-56/'
 # dir_targ   = f'/media/player1/blast2020fc1/fc1/roach_flight/roach{roach}/targ/Mon_Jan__6_06_00_34_2020/'
 
 # roach 1
-dir_roach  = dir_root + f'/roach{roach}_2020-01-06-06-22-01/'
-dir_targ   = f'/media/player1/blast2020fc1/fc1/roach_flight/roach{roach}/targ/Mon_Jan__6_06_00_33_2020/'
+dir_roach   = dir_root + f'/roach{roach}_2020-01-06-06-22-01/'
+dir_targ    = f'/media/player1/blast2020fc1/fc1/roach_flight/roach{roach}/targ/Mon_Jan__6_06_00_33_2020/'
+file_shifts = dir_shifts + 'shifts_roach1.npy'
 
 
 
@@ -162,6 +165,9 @@ def loadCommonData(roach, dir_master, dir_roach, conv_ra, conv_dec):
     master_dec = master_dec.astype('float64')
     master_ra  *= conv_ra
     master_dec *= conv_dec
+
+    # adjust ra from hours to degrees
+    master_ra *= 15
     
     # data to return
     dat_raw = {
@@ -190,6 +196,37 @@ def loadTargSweep(kid, dir_targ):
     Q = dat_targ[1::2, kid]
     
     return I,Q
+
+
+# ============================================================================ #
+# loadShiftsData
+def loadShiftsData(file_shifts, shift_trans):
+    '''Load the pre-determined resonator positional shift data.
+
+    file_shifts: (str) The absolute filename of the shift information file.
+    shift_trans: (4tuple) The transformation information. 
+        (shift x, offset x, shift y, offset y)
+    '''
+
+    dat_shifts = np.load(file_shifts, allow_pickle=True) # kid: (shift_x, shift_y)
+     
+    # convert to dictionary
+    dat_shifts = {
+        int(dat_shifts[i][0]): (float(dat_shifts[i][1]), float(dat_shifts[i][2]))
+        for i in range(len(dat_shifts))
+    }
+
+    # transform
+    for kid in dat_shifts:
+        s_x, o_x, s_y, o_y = shift_trans
+        x, y = dat_shifts[kid]
+        x *= s_x
+        x += o_x
+        y *= s_y
+        y += o_y
+        dat_shifts[kid] = (x, y)
+
+    return dat_shifts
 
 
 # ============================================================================ #
@@ -427,12 +464,23 @@ def invertImageIfNeeded(image):
 
 # ============================================================================ #
 # brightestPixel
-def brightestPixel(image):
+def brightestPixel(image, threshold=3):
     '''Find the indices of the maximum value in the 2D array.
+
+    threshold: (float) Standard deviation multiple to filter if below.
+        If filtered, returns (NaN, NaN)
     '''
     
     indices = np.unravel_index(np.nanargmax(image, axis=None), image.shape)
     
+    if threshold:
+        hi = np.nanmax(image)
+        std = np.nanstd(image)
+        mean = np.nanmean(image)
+
+        if hi - mean < std*threshold:
+            indices = (np.nan, np.nan)
+
     return np.array(indices)
 
 
@@ -473,7 +521,7 @@ def fit2DGaussian(image_in):
 
     # Fit the 2D Gaussian
     with warnings.catch_warnings():
-        warnings.simplefilter("ignore", category=RuntimeWarning)
+        warnings.simplefilter("ignore")
         popt, pcov = curve_fit(gaussian2d, (x, y), image.ravel(), p0=initial_guess)
 
     # Extract the center coordinates from the fitted parameters
@@ -635,6 +683,12 @@ log.info(f"Found {len(kids)} KIDs to use.")
 kids.remove(kid_ref)
 kids.insert(0, kid_ref)
 
+# load pre-determined shifts file
+dat_shifts = loadShiftsData(file_shifts, shift_trans)
+
+# track pixel shifts
+shifts = [] # (kid, ra, dec)
+
 
 
 # ============================================================================ #
@@ -713,30 +767,38 @@ for kid in kids:
         
         log.info(f"ref KID = {kid_ref}")
 
-        # calculate shift for each map from reference
-        shift_A_bp  = imageShiftToAlign(zz_A_ref, zz_A, brightestPixel)
-        shift_P_bp  = imageShiftToAlign(zz_P_ref, zz_P, brightestPixel)
-        shift_DF_bp = imageShiftToAlign(zz_DF_ref, zz_DF, brightestPixel)
-        shift_A_g  = imageShiftToAlign(zz_A_ref, zz_A, fit2DGaussian)
-        shift_P_g  = imageShiftToAlign(zz_P_ref, zz_P, fit2DGaussian)
-        shift_DF_g = imageShiftToAlign(zz_DF_ref, zz_DF, fit2DGaussian)
+        # load pre-determined shift information
+        try:    shift_to_use = dat_shifts[int(kid)]
+        except: shift_to_use = None
 
-        # use the median shift (we have 3 so hopefully at least 2 are the same)
-        # this is necessary because sometimes the source isn't max val in one map
-        # shift_to_use = np.nanmedian([shift_A, shift_P, shift_DF], axis=0)
+        # # calculate shift for each map from reference
+        # shift_A_bp   = imageShiftToAlign(zz_A_ref, zz_A, brightestPixel)
+        # shift_P_bp   = imageShiftToAlign(zz_P_ref, zz_P, brightestPixel)
+        # shift_DF_bp  = imageShiftToAlign(zz_DF_ref, zz_DF, brightestPixel)
+        # # shift_A_g  = imageShiftToAlign(zz_A_ref, zz_A, fit2DGaussian)
+        # # shift_P_g  = imageShiftToAlign(zz_P_ref, zz_P, fit2DGaussian)
+        # # shift_DF_g = imageShiftToAlign(zz_DF_ref, zz_DF, fit2DGaussian)
+
+        # # use the median shift (we have 3 so hopefully at least 2 are the same)
+        # # this is necessary because sometimes the source isn't max val in one map
+        # shift_to_use = np.nanmedian([shift_A_bp, shift_P_bp, shift_DF_bp], axis=0)
 
         # use the mean shift, but only for points close
-        shift_to_use = meanPoint([shift_A_bp, shift_P_bp, shift_DF_bp, shift_A_g, shift_P_g, shift_DF_g])
+        # shift_to_use = meanPoint([shift_A_bp, shift_P_bp, shift_DF_bp, shift_A_g, shift_P_g, shift_DF_g])
+        # shift_to_use = meanPoint([shift_A_bp, shift_P_bp, shift_DF_bp])
 
-        log.info(f"shift_A_bp={shift_A_bp}, shift_P_bp={shift_P_bp}, shift_DF_bp={shift_DF_bp}")
-        log.info(f"shift_A_g={shift_A_g}, shift_P_g={shift_P_g}, shift_DF_g={shift_DF_g}")
+        # log.info(f"shift_A_bp={shift_A_bp}, shift_P_bp={shift_P_bp}, shift_DF_bp={shift_DF_bp}")
+        # # log.info(f"shift_A_g={shift_A_g}, shift_P_g={shift_P_g}, shift_DF_g={shift_DF_g}")
         log.info(f"shift_to_use={shift_to_use}")
 
-        # if no shifts are similar, skip this KID
+        # if no shift, skip this KID
         if shift_to_use is None:
             log.info(f"No concensus on shift to use - skipping this KID.")
             print("o", end="", flush=True)
             continue
+
+        # tracking the shift to use
+        shifts.append((kid, *shift_to_use))
 
         # align the images with chosen shift
         zz_A  = shift(zz_A, shift_to_use, cval=np.nan, order=0)
@@ -749,9 +811,9 @@ for kid in kids:
         zz_DF_multi = ternNansum(zz_DF_multi, zz_DF)
         
         # track how many kids had values for each pixel, for mean
-        # zz_A_kid_cnt  = ternSum(zz_A_kid_cnt, ~np.isnan(zz_A)) 
-        # zz_P_kid_cnt  = ternSum(zz_P_kid_cnt, ~np.isnan(zz_P))
-        # zz_DF_kid_cnt = ternSum(zz_DF_kid_cnt, ~np.isnan(zz_DF))
+        zz_A_kid_cnt  = ternSum(zz_A_kid_cnt, ~np.isnan(zz_A)) 
+        zz_P_kid_cnt  = ternSum(zz_P_kid_cnt, ~np.isnan(zz_P))
+        zz_DF_kid_cnt = ternSum(zz_DF_kid_cnt, ~np.isnan(zz_DF))
             
         # number of KIDs processed
         kid_cnt += 1
@@ -760,12 +822,12 @@ for kid in kids:
         if kid_cnt in outputAtKidCnt or kid_cnt == len(kids):
             
             # divide sum maps by count to get mean maps for output
-            # zz_A_out  = np.divide(zz_A_multi, zz_A_kid_cnt, where=zz_A_kid_cnt.astype(bool))
-            # zz_P_out  = np.divide(zz_P_multi, zz_P_kid_cnt, where=zz_P_kid_cnt.astype(bool))
-            # zz_DF_out = np.divide(zz_DF_multi, zz_DF_kid_cnt, where=zz_DF_kid_cnt.astype(bool))
-            zz_A_out  = zz_A_multi/kid_cnt
-            zz_P_out  = zz_P_multi/kid_cnt
-            zz_DF_out = zz_DF_multi/kid_cnt
+            zz_A_out  = np.divide(zz_A_multi, zz_A_kid_cnt, where=zz_A_kid_cnt.astype(bool))
+            zz_P_out  = np.divide(zz_P_multi, zz_P_kid_cnt, where=zz_P_kid_cnt.astype(bool))
+            zz_DF_out = np.divide(zz_DF_multi, zz_DF_kid_cnt, where=zz_DF_kid_cnt.astype(bool))
+            # zz_A_out  = zz_A_multi/kid_cnt
+            # zz_P_out  = zz_P_multi/kid_cnt
+            # zz_DF_out = zz_DF_multi/kid_cnt
             
             # hack to add nans back in
             # I can't figure out why this is needed
@@ -822,5 +884,7 @@ file_DF = os.path.join(dir_out, f"map_DF")
 np.save(file_A, A_out)
 np.save(file_P, P_out)
 np.save(file_DF, DF_out)
+
+np.save(os.path.join(dir_out, "shifts"), shifts)
 
 print("Done.")
