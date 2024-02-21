@@ -430,29 +430,60 @@ def detectPeaks(a, std, s=3, w=100):
 
 
 # ============================================================================ #
+# weightedMedian
+def weightedMedian(data, weights):
+    '''Weighted median of data.
+
+    data: (1D array; floats) The data array.
+    weights: (1D arrayl floats) Weight at each data point.
+    '''
+
+    # Sort data and corresponding weights
+    sorted_indices = np.argsort(data)
+    sorted_data = data[sorted_indices]
+    sorted_weights = weights[sorted_indices]
+
+    # Calculate cumulative sum of weights
+    cumulative_weights = np.cumsum(sorted_weights)
+
+    # Find median index
+    median_index = np.searchsorted(cumulative_weights, 0.5 * np.sum(weights))
+
+    # Return median value
+    return sorted_data[median_index]
+
+
+# ============================================================================ #
 # sourceCoords
-def sourceCoords(ra, dec, tod, noise, s, w):
-    '''Source ra and dec from weighted mean of TOD peaks.
+def sourceCoords(ra, dec, tod, noise, s, w, t=0.5):
+    '''Determine source RA and DEC coordinates.
 
     ra, dec: (1D array; floats) Time ordered data of RA/DEC.
     tod: (1D array; floats) Time ordered data to find source in, e.g. DF.
     noise: (float) Noise in tod.
     s: (float) Prominence of peak in multiples of noise.
     w: (int) Width of peak in tod indices.
+    t: (float) Threshold to filter peaks [tod units]
     '''
 
-    peak_indices, peak_info = detectPeaks(tod, noise, s, w)
+    i_peaks, peak_info = detectPeaks(tod, noise, s, w)
     
-    if len(peak_indices) < 1:
+    if len(i_peaks) < 1:
         return None
 
-    ra_peaks  = ra[peak_indices]
-    dec_peaks = dec[peak_indices]
-    
-    wts = peak_info['prominences']
+    # weighted mean of all peaks
+    # wts = peak_info['prominences']
+    # ra_peaks  = ra[i_peaks]
+    # dec_peaks = dec[i_peaks]
+    # ra_source  = np.sum(ra_peaks*wts)/np.sum(wts)
+    # dec_source = np.sum(dec_peaks*wts)/np.sum(wts)
 
-    ra_source  = np.sum(ra_peaks*wts)/np.sum(wts)
-    dec_source = np.sum(dec_peaks*wts)/np.sum(wts)
+    # only most prominent peaks; assumes normalized 0-1
+    i_peaks_f = tod[i_peaks] >= t # threshold
+
+    # weighted median of most prominent peaks
+    ra_source = weightedMedian(ra[i_peaks_f], weights=tod[i_peaks_f])
+    dec_source = weightedMedian(dec[i_peaks_f], weights=tod[i_peaks_f])
 
     return ra_source, dec_source
 
@@ -633,7 +664,7 @@ print(f"Creating amplitude, phase, and df maps from all KIDs in roach {roach}.")
 print(f"See log file for more info.")
 print(f"Output is in: {dir_out}")
 
-print("Performing pre-KID processing... ", end="")
+print("Performing pre-KID processing... ", end="", flush=True)
 
 # load the common data
 dat_raw = loadCommonData(roach, dir_master, dir_roach, conv_ra, conv_dec)
