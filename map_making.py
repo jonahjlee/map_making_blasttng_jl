@@ -16,11 +16,17 @@ import sys
 import time
 import logging
 import warnings
+import traceback
 import numpy as np
 import numba as nb
 from datetime import datetime
 from scipy.ndimage import shift
 from scipy.signal import find_peaks
+
+import tracemalloc
+tracemalloc.start()
+def mem(s):
+    return f"{s}: {tracemalloc.get_traced_memory()}"
 
 
 
@@ -298,15 +304,17 @@ def alignMasterToRoachTOD(master_time, roach_time, ra, dec):
 
     indices, master_time_a, ra_a, dec_a, roach_time_aligned = ret
 
-    dat_align = {
-        'indices'    : indices,
-        'master_time': master_time_a,
-        "ra"         : ra_a,
-        "dec"        : dec_a,
-        'roach_time' : roach_time_aligned,
-    }
+    # dat_align = {
+    #     'indices'    : indices,
+    #     'master_time': master_time_a,
+    #     "ra"         : ra_a,
+    #     "dec"        : dec_a,
+    #     'roach_time' : roach_time_aligned,
+    # }
 
-    return dat_align
+    # return dat_align
+
+    return indices, ra_a, dec_a, roach_time_aligned
    
 # ============================================================================ #
 # alignIQ
@@ -482,8 +490,9 @@ def sourceCoords(ra, dec, tod, noise, s, w, t=0.5):
     i_peaks_f = tod[i_peaks] >= t # threshold
 
     # weighted median of most prominent peaks
-    ra_source = weightedMedian(ra[i_peaks_f], weights=tod[i_peaks_f])
-    dec_source = weightedMedian(dec[i_peaks_f], weights=tod[i_peaks_f])
+    wts = tod[i_peaks][i_peaks_f]
+    ra_source = weightedMedian(ra[i_peaks][i_peaks_f], weights=wts)
+    dec_source = weightedMedian(dec[i_peaks][i_peaks_f], weights=wts)
 
     return ra_source, dec_source
 
@@ -670,24 +679,23 @@ print("Performing pre-KID processing... ", end="", flush=True)
 dat_raw = loadCommonData(roach, dir_master, dir_roach, conv_ra, conv_dec)
 
 # align the master and roach data
-dat_align = alignMasterToRoachTOD(
+dat_align_indices, ra_a, dec_a, roach_time_aligned = alignMasterToRoachTOD(
     dat_raw['master_time'], dat_raw['roach_time'], dat_raw['ra'], dat_raw['dec'])
-dat_align_indices = dat_align['indices']
 
 # slice the common data for this map
 # note that cal lamp is removed in these slices
 # so master tods will be out of sync with A, P, and DF for a while
-TIME = dat_align['roach_time'][slice_i:cal_i]
-RA   = dat_align['ra'][slice_i:cal_i]
-DEC  = dat_align['dec'][slice_i:cal_i]
+TIME = roach_time_aligned[slice_i:cal_i].copy()
+RA   = ra_a[slice_i:cal_i].copy()
+DEC  = dec_a[slice_i:cal_i].copy()
+
+# free memory and force collection
+del(dat_raw, ra_a, dec_a, roach_time_aligned)
+gc.collect() 
 
 # generate map bins and axes
 rr, dd, ra_bins, dec_bins, ra_edges, dec_edges = genMapAxesAndBins(
     RA, DEC, ra_bin, dec_bin)
-
-# delete unneeded vars to free up memory
-del(dat_raw)
-del(dat_align)
 
 print("Done.")
 print("Determining KIDs to use... ", end="", flush=True)
@@ -738,12 +746,17 @@ for kid in kids:
     log.info(f"delta_t = {timer.deltat()}")
     log.info(f"KID = {kid} ---------------------")
     log.info(f"kid count = {kid_cnt+1}")
+
+    log.info(mem(kid)) # check mem usage per loop
+    # TODO increase of ~270 kB per loop
+    # not sure if I expect an increase, but this is manageable
+    # i.e. 1000 KIDs x 270 kB = 270 MB
     
     try:
-            
+
 # ============================================================================ #
 #   I and Q
-        
+
         # load KID data
         I, Q, targ = loadKIDData(dir_targ, roach, kid)
 
@@ -754,7 +767,7 @@ for kid in kids:
         # keep cal lamp in, so will be out of sync with master tods
         I_slice = I_align[slice_i:cal_f]
         Q_slice = Q_align[slice_i:cal_f]
-
+        
         del(I, Q, I_align, Q_align) # done with these
 
 # ============================================================================ #
@@ -790,7 +803,7 @@ for kid in kids:
         A_noise  = todNoise(A, noise_i - slice_i, noise_f - slice_i)
         P_noise  = todNoise(P, noise_i - slice_i, noise_f - slice_i)
         DF_noise = todNoise(DF, noise_i - slice_i, noise_f - slice_i)
-        
+
 # ============================================================================ #
 #   single maps
 
@@ -855,7 +868,7 @@ for kid in kids:
         zz_A  = shift(zz_A, np.flip(shift_pix), cval=np.nan, order=0)
         zz_P  = shift(zz_P, np.flip(shift_pix), cval=np.nan, order=0)
         zz_DF = shift(zz_DF, np.flip(shift_pix), cval=np.nan, order=0)
-        
+
 # ============================================================================ #
 #   multi maps
 
@@ -918,7 +931,8 @@ for kid in kids:
 
     # something broke, move to next KID
     except Exception as e:
-        log.info(e)
+        # log.info(e)
+        log.error(f"{e}\n{traceback.format_exc()}")
 
         print("0", end="", flush=True)
         continue
