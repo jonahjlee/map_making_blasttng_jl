@@ -9,17 +9,18 @@
 # ============================================================================ #
 
 
-from datetime import datetime
 import os
+import re
+import gc
+import sys
 import time
 import logging
-import numpy as np
-import re
-from scipy.ndimage import shift
-from scipy.optimize import curve_fit
-from scipy.ndimage import gaussian_filter
-import numba as nb
 import warnings
+import numpy as np
+import numba as nb
+from datetime import datetime
+from scipy.ndimage import shift
+from scipy.signal import find_peaks
 
 
 
@@ -31,42 +32,54 @@ log_file = "map_making.log"
 
 roach = 1
 
-# kid_ref = '0070' # roach 3
-kid_ref = '0100' # roach 1
+# KID to use as the reference for shift table calculations
+kid_ref = {1:'0100', 2:'', 3:'0070', 4:'', 5:''}[roach]
 
-# loaded shifts transforms
-# (scale x, offset x, scale y, offset y)
-shift_trans = (0.0004, 4, 0.00075, 7) 
-# NOTE: The offsets are dependent on the ref kid
-
-# ra and dec conversion factors
+# ra and dec TOD conversion factors
 conv_ra  = 5.5879354e-09
 conv_dec = 8.38190317e-08
 
-# initial and final data indices to use for this map
+# data indices
 # this should be object RCW 92
-# slice_i = 37141250 # roach 3
-# slice_f = 37657540 # roach 3; no lamp; 37734400 w/ lamp
-slice_i = 37125750 # roach 1
-slice_f = 37641750 # roach 1; no lamp; 37718610 w/ lamp
+slice_i = {1:37125750, 2:0, 3:37141250, 4:0, 5:0}[roach] # RCW 92
+cal_i   = slice_i + 516_000 # cal lamp
+cal_f   = slice_i + 519_000
+noise_i = slice_i + 140_000 # noise region
+noise_f = slice_i + 200_000
 
-# map bin sizes to use (determines final resolution)
-ra_bin  = 0.001 # degrees -> 3.6"
-dec_bin = 0.001 # 0.015
+# TOD peak properties for find_peaks
+peak_s = 3   # prominence [multiple of noise]
+peak_w = 100 # width [indices] 
+
+# map pixel bin sizes to use (determines final resolution)
+ra_bin  = 0.01 # degrees; note RA TOD is converted from hours
+dec_bin = 0.01 # degrees
+# beam is 0.01 degrees or 36 arcsec
+# older maps were 0.015 degrees
 
 # declare directories
-dir_root   = '/media/player1/blast2020fc1/fc1/converted'
-dir_master = dir_root + '/master_2020-01-06-06-21-22/'
-dir_shifts = dir_root + '/shifts/'
+dir_root   = '/media/player1/blast2020fc1/fc1/'
+dir_conv   = dir_root + 'converted/' # converted npy's
+dir_master = dir_conv + 'master_2020-01-06-06-21-22/'
+if roach == 1:
+    dir_roach   = dir_conv + f'roach1_2020-01-06-06-22-01/'
+    dir_targ    = dir_root + f'roach_flight/roach1/targ/Mon_Jan__6_06_00_33_2020/'
+elif roach == 2:
+    dir_roach   = dir_conv + f''
+    dir_targ    = dir_root + f''
+elif roach == 3:
+    dir_roach   = dir_conv + f'roach3_2020-01-06-06-21-56/'
+    dir_targ    = dir_root + f'roach_flight/roach3/targ/Mon_Jan__6_06_00_34_2020/'
+elif roach == 4:
+    dir_roach   = dir_conv + f''
+    dir_targ    = dir_root + f''
+elif roach == 5:
+    dir_roach   = dir_conv + f''
+    dir_targ    = dir_root + f''
 
-# roach 3
-# dir_roach  = dir_root + f'/roach{roach}_2020-01-06-06-21-56/'
-# dir_targ   = f'/media/player1/blast2020fc1/fc1/roach_flight/roach{roach}/targ/Mon_Jan__6_06_00_34_2020/'
-
-# roach 1
-dir_roach   = dir_root + f'/roach{roach}_2020-01-06-06-22-01/'
-dir_targ    = f'/media/player1/blast2020fc1/fc1/roach_flight/roach{roach}/targ/Mon_Jan__6_06_00_33_2020/'
-file_shifts = dir_shifts + 'shifts_roach1.npy'
+# map shifts file
+dir_shifts = dir_conv + 'shifts/'
+file_shifts = dir_shifts + f'shifts_roach{roach}.npy'
 
 
 
@@ -86,7 +99,7 @@ def genTimestamp():
 
 
 # ============================================================================ #
-# genLog        
+# genLog
 def genLog(log_file, log_dir):
     '''Generate a logging log.
     '''
@@ -172,8 +185,8 @@ def loadCommonData(roach, dir_master, dir_roach, conv_ra, conv_dec):
     # data to return
     dat_raw = {
         'master_time': master_time,
-        'ra'         : master_ra,
-        'dec'        : master_dec,
+        "ra"         : master_ra,
+        "dec"        : master_dec,
         'roach_time' : roach_time,
     }
     
@@ -200,12 +213,10 @@ def loadTargSweep(kid, dir_targ):
 
 # ============================================================================ #
 # loadShiftsData
-def loadShiftsData(file_shifts, shift_trans):
+def loadShiftsData(file_shifts):
     '''Load the pre-determined resonator positional shift data.
 
     file_shifts: (str) The absolute filename of the shift information file.
-    shift_trans: (4tuple) The transformation information. 
-        (shift x, offset x, shift y, offset y)
     '''
 
     dat_shifts = np.load(file_shifts, allow_pickle=True) # kid: (shift_x, shift_y)
@@ -215,16 +226,6 @@ def loadShiftsData(file_shifts, shift_trans):
         int(dat_shifts[i][0]): (float(dat_shifts[i][1]), float(dat_shifts[i][2]))
         for i in range(len(dat_shifts))
     }
-
-    # transform
-    for kid in dat_shifts:
-        s_x, o_x, s_y, o_y = shift_trans
-        x, y = dat_shifts[kid]
-        x *= s_x
-        x += o_x
-        y *= s_y
-        y += o_y
-        dat_shifts[kid] = (x, y)
 
     return dat_shifts
 
@@ -300,8 +301,8 @@ def alignMasterToRoachTOD(master_time, roach_time, ra, dec):
     dat_align = {
         'indices'    : indices,
         'master_time': master_time_a,
-        'ra'         : ra_a,
-        'dec'        : dec_a,
+        "ra"         : ra_a,
+        "dec"        : dec_a,
         'roach_time' : roach_time_aligned,
     }
 
@@ -318,33 +319,6 @@ def alignIQ(I, Q, indices):
     Q_align = Q[indices]
     
     return I_align, Q_align
-    
-
-# ============================================================================ #
-# sliceCommon
-def sliceCommon(roach_time, ra, dec, i, f): 
-    '''Slice common data to desired region.
-    '''
-    
-    dat_slice = {
-        'time'   : roach_time[i:f],
-        'ra'     : ra[i:f],
-        'dec'    : dec[i:f],
-    }
-
-    return dat_slice
-
-
-# ============================================================================ #
-# sliceIQ
-def sliceIQ(I, Q, i, f):
-    '''Slice KID data to desired region.
-    '''
-    
-    I_slice = I[i:f]
-    Q_slice = Q[i:f]
-    
-    return I_slice, Q_slice
 
 
 # ============================================================================ #
@@ -389,42 +363,168 @@ def createΔfx_grad(I, Q, If, Qf):
 
 
 # ============================================================================ #
-# precomputeMeshgrid
-def precomputeMeshgrid(ra, dec, ra_bin, dec_bin):
-    '''
+# invTodIfNegPeaks
+def invTodIfNegPeaks(tod):
+    '''Invert TOD if peaks are negative.
     '''
     
-    r = np.arange(np.min(ra), np.max(ra), ra_bin)
-    d = np.arange(np.min(dec), np.max(dec), dec_bin)
-    rr, dd = np.meshgrid(r, d)
+    med = np.median(tod)
 
-    return rr, dd, r, d
+    if (med - tod.min()) > (tod.max() - med):
+        tod *= -1
+        
+    return tod
 
 
 # ============================================================================ #
-# buildSingleKIDMaps
-def buildSingleKIDMaps(A, P, DF, ra_indices, dec_indices, zz_nan):
-    '''Build the 3 (amplitude, phase, df) maps for a KID.
+# todNoise
+def todNoise(tod, i_i, i_f):
+    '''Noise (std) in TOD sample.
 
-    A, P, DF: (1D arrays; floats) TOD values.
-    ra_indices, dec_indices: (1D arrays; ints) RA and DEC zz indices.
-    zz_nan: (2D array; floats) Template output map full of NaNs.
+    tod: (1D array; floats) Time ordered data, e.g. amp, phase, or df.
+    i_i: (int) Sample start index within TOD.
+    i_f: (int) Sample end index within TOD.
     '''
 
-    zz_A = zz_nan.copy()
-    zz_P = zz_nan.copy()
-    zz_DF = zz_nan.copy()
+    return np.std(tod[i_i:i_f])
 
-    # I can't find a way to vectorize this
-    for i in range(zz_nan.shape[0]):
-        for j in range(zz_nan.shape[1]):
-            det_inds = (ra_indices == j) & (dec_indices == i)
-            if np.any(det_inds):
-                zz_A[i, j] = np.nanmean(A[det_inds])
-                zz_P[i, j] = np.nanmean(P[det_inds])
-                zz_DF[i, j] = np.nanmean(DF[det_inds])
 
-    return zz_A, zz_P, zz_DF
+# ============================================================================ #
+# normTod
+def normTod(tod, cal_i, cal_f):
+    '''Normalize data as 0+epsilon to cal lamp peak.
+    
+    tod: (1D array; floats) Time ordered data to normalize.
+    cal_i/cal_f: (int) Calibration start/end indices.
+    '''
+
+    # scale/shift a_old to a_new, b_old to b_new
+    
+    a_old = np.median(tod) # median yields better true amplitudes
+    b_old = tod[cal_i:cal_f].max() # cal lamp max
+    
+    a_new = sys.float_info.epsilon # ~0
+    b_new = 1
+    
+    with warnings.catch_warnings():
+        warnings.simplefilter("ignore", category=RuntimeWarning)
+        tod_norm = a_new + (b_new - a_new)*(tod - a_old)/(b_old - a_old)
+
+    return tod_norm
+
+
+# ============================================================================ #
+# detectPeaks
+def detectPeaks(a, std, s=3, w=100):
+    '''Detect peaks in data array.
+    
+    a: (1D array of floats) Data (TOD) to find peaks in.
+    std: (float) Standard deviation of noise of a.
+    s: (float) Multiplication factor of std (sigma) to set peak prominence to.
+    w: (float) Min width of peak.
+    '''
+    
+    peak_indices, info = find_peaks(a, prominence=s*std, width=w)
+    
+    return peak_indices, info
+
+
+# ============================================================================ #
+# sourceCoords
+def sourceCoords(ra, dec, tod, noise, s, w):
+    '''Source ra and dec from weighted mean of TOD peaks.
+
+    ra, dec: (1D array; floats) Time ordered data of RA/DEC.
+    tod: (1D array; floats) Time ordered data to find source in, e.g. DF.
+    noise: (float) Noise in tod.
+    s: (float) Prominence of peak in multiples of noise.
+    w: (int) Width of peak in tod indices.
+    '''
+
+    peak_indices, peak_info = detectPeaks(tod, noise, s, w)
+    
+    if len(peak_indices) < 1:
+        return None
+
+    ra_peaks  = ra[peak_indices]
+    dec_peaks = dec[peak_indices]
+    
+    wts = peak_info['prominences']
+
+    ra_source  = np.sum(ra_peaks*wts)/np.sum(wts)
+    dec_source = np.sum(dec_peaks*wts)/np.sum(wts)
+
+    return ra_source, dec_source
+
+
+# ============================================================================ #
+# findPixShift
+def findPixShift(p, ref, ra_bins, dec_bins):
+    '''Find the bin shift to move point to reference.
+
+    p: (2tuple; floats) Point (RA, DEC).
+    ref: (2tuple; floats) Reference point (RA, DEC).
+    ra_bins: (1D array; floats) RA map bins.
+    dec_bins: (1D array; floats) DEC map bins.
+    '''
+
+    def findBin(v, bins):
+        return np.argmin(np.abs(v - bins))
+    
+    bin_ref = (findBin(ref[0], ra_bins), findBin(ref[1], dec_bins))
+    bin_p   = (findBin(p[0], ra_bins), findBin(p[1], dec_bins))
+    
+    return np.array(bin_ref) - np.array(bin_p)
+
+
+# ============================================================================ #
+# genMapAxesAndBins
+def genMapAxesAndBins(ra, dec, ra_bin, dec_bin):
+    '''Generate the 1D bin arrays and 2D map arrays.
+
+    ra/dec: (1D array; floats) RA/DEC time ordered data [degrees].
+    ra_bin/dec_bin: (float) RA/DEC bin size [degrees].
+    '''
+
+    # num_ra_bins  = int(np.ceil((ra.max() - ra.min()) / ra_bin))
+    # num_dec_bins = int(np.ceil((dec.max() - dec.min()) / dec_bin))
+
+    # ra_edges  = np.linspace(ra.min(), ra.max(), num_ra_bins + 1)
+    # dec_edges = np.linspace(dec.min(), dec.max(), num_dec_bins + 1)
+
+    # rr, dd = np.meshgrid(ra_edges, dec_edges)
+
+    ra_bins  = np.arange(np.min(ra), np.max(ra), ra_bin)
+    dec_bins = np.arange(np.min(dec), np.max(dec), dec_bin)
+
+    ra_edges  = np.arange(np.min(ra), np.max(ra) + ra_bin, ra_bin)
+    dec_edges = np.arange(np.min(dec), np.max(dec) + dec_bin, dec_bin)
+
+    rr, dd = np.meshgrid(ra_bins, dec_bins)
+
+    return rr, dd, ra_bins, dec_bins, ra_edges, dec_edges
+
+
+# ============================================================================ #
+# buildSingleKIDMap
+def buildSingleKIDMap(tod, ra, dec, ra_edges, dec_edges):
+    '''Build a 2D map from time ordered data for a single KID.
+
+    ra, dec: (1D arrays; floats) The time ordered ra/dec data.
+    TOD: (1D arrays; floats) TOD values, e.g. A, P, DF.
+    '''
+
+    zz0, _, _ = np.histogram2d(ra, dec, bins=[ra_edges, dec_edges])
+    zz, _, _ = np.histogram2d(ra, dec, bins=[ra_edges, dec_edges], weights=tod)
+    
+    with warnings.catch_warnings():
+        warnings.simplefilter("ignore", category=RuntimeWarning)
+        zz = np.divide(zz, zz0)
+    # zz /= zz0
+
+    zz[zz == 0] = np.nan
+
+    return zz.T
 
 
 # ============================================================================ #
@@ -460,118 +560,6 @@ def invertImageIfNeeded(image):
         image = -1*image + 1
         
     return image
-
-
-# ============================================================================ #
-# brightestPixel
-def brightestPixel(image, threshold=3):
-    '''Find the indices of the maximum value in the 2D array.
-
-    threshold: (float) Standard deviation multiple to filter if below.
-        If filtered, returns (NaN, NaN)
-    '''
-    
-    indices = np.unravel_index(np.nanargmax(image, axis=None), image.shape)
-    
-    if threshold:
-        hi = np.nanmax(image)
-        std = np.nanstd(image)
-        mean = np.nanmean(image)
-
-        if hi - mean < std*threshold:
-            indices = (np.nan, np.nan)
-
-    return np.array(indices)
-
-
-# ============================================================================ #
-# gaussian2d
-@nb.njit
-def gaussian2d(xy, amplitude, yo, xo, sigma_x, sigma_y, theta, offset):
-    '''2D gaussian function.
-    '''
-
-    x, y = xy
-    xo = float(xo)
-    yo = float(yo)
-    a = (np.cos(theta)**2)/(2*sigma_x**2) + (np.sin(theta)**2)/(2*sigma_y**2)
-    b = -(np.sin(2*theta))/(4*sigma_x**2) + (np.sin(2*theta))/(4*sigma_y**2)
-    c = (np.sin(theta)**2)/(2*sigma_x**2) + (np.cos(theta)**2)/(2*sigma_y**2)
-    g = offset + amplitude * np.exp( - (a*((x-xo)**2) + 2*b*(x-xo)*(y-yo) 
-                            + c*((y-yo)**2)))
-    return g.ravel()
-
-
-# ============================================================================ #
-# fitGaussian
-def fit2DGaussian(image_in):
-    '''Best 2D gaussian fit to image data.
-    '''
-
-    # can't fit on nans
-    image = np.nan_to_num(image_in, copy=True, nan=0.0)
-
-    # Get image dimensions
-    x, y = np.meshgrid(np.arange(image.shape[1]), np.arange(image.shape[0]))
-    
-    # Initial guess for the parameters
-    #initial_guess = (np.max(image), np.argmax(image) % image.shape[1], np.argmax(image) // image.shape[1], 2., 2., 0.0, np.min(image))
-    initial_guess = (np.max(image), *np.unravel_index(image.argmax(), image.shape), 
-                     2., 2., 0.0, np.min(image))
-
-    # Fit the 2D Gaussian
-    with warnings.catch_warnings():
-        warnings.simplefilter("ignore")
-        popt, pcov = curve_fit(gaussian2d, (x, y), image.ravel(), p0=initial_guess)
-
-    # Extract the center coordinates from the fitted parameters
-    center_x, center_y = popt[1], popt[2]
-
-    return np.array([center_x, center_y])
-
-
-# ============================================================================ #
-# imageShiftToAlign
-def imageShiftToAlign(ref_image, image, fit_func):
-    '''Shift needed to align image to reference.
-    '''
-
-    return fit_func(ref_image) - fit_func(image)
-
-
-# ============================================================================ #
-# distance
-@nb.njit
-def distance(point1, point2):
-    '''Calculate the Euclidean distance between two points.
-    '''
-    
-    return ((point1[0] - point2[0]) ** 2 + (point1[1] - point2[1]) ** 2) ** 0.5
-
-
-# ============================================================================ #
-# meanPoint
-# @nb.njit
-def meanPoint(points, range_threshold=2):
-    '''Find the mean position of points within a certain range of each other.
-    '''
-    
-    for i, point in enumerate(points):
-        
-        # Check distance between this point and other points
-        nearby_points = [
-            p 
-            for j, p in enumerate(points) 
-            if i != j and distance(point, p) <= range_threshold]
-        
-        if nearby_points:
-            # Calculate mean position of nearby points
-            mean_x = (point[0] + sum(p[0] for p in nearby_points)) / (len(nearby_points) + 1)
-            mean_y = (point[1] + sum(p[1] for p in nearby_points)) / (len(nearby_points) + 1)
-            return mean_x, mean_y
-
-    # No points found within range
-    return None
 
 
 # ============================================================================ #
@@ -612,7 +600,7 @@ def ternSum(var, val):
 
 
 # ============================================================================ #
-# PRE-LOOP
+# PRE
 # ============================================================================ #
 
 timer              = Timer()
@@ -620,19 +608,26 @@ timestamp          = genTimestamp()
 dir_out, dir_prods = genDirsForRun(timestamp)
 log                = genLog(log_file, dir_out)
 
-log.info(f"log_file = {log_file}")
-log.info(f"roach = {roach}")
-log.info(f"conv_ra = {conv_ra}")
-log.info(f"conv_dec = {conv_dec}")
-log.info(f"slice_i = {slice_i}")
-log.info(f"slice_f = {slice_f}")
-log.info(f"ra_bin = {ra_bin}")
-log.info(f"dec_bin = {dec_bin}")
-log.info(f"dir_out = {dir_out}")
-log.info(f"dir_root = {dir_root}")
+log.info(f"log_file   = {log_file}")
+log.info(f"roach      = {roach}")
+log.info(f"kid_ref    = {kid_ref}")
+log.info(f"conv_ra    = {conv_ra}")
+log.info(f"conv_dec   = {conv_dec}")
+log.info(f"slice_i    = {slice_i}")
+log.info(f"cal_i      = {cal_i}")
+log.info(f"cal_f      = {cal_f}")
+log.info(f"noise_i    = {noise_i}")
+log.info(f"noise_f    = {noise_f}")
+log.info(f"ra_bin     = {ra_bin}")
+log.info(f"dec_bin    = {dec_bin}")
+log.info(f"peak_s     = {peak_s}")
+log.info(f"peak_w     = {peak_w}")
+log.info(f"dir_out    = {dir_out}")
+log.info(f"dir_root   = {dir_root}")
 log.info(f"dir_master = {dir_master}")
-log.info(f"dir_roach = {dir_roach}")
-log.info(f"dir_targ = {dir_targ}")
+log.info(f"dir_roach  = {dir_roach}")
+log.info(f"dir_targ   = {dir_targ}")
+log.info(f"file_shifts = {file_shifts}")
 
 print(f"Creating amplitude, phase, and df maps from all KIDs in roach {roach}.")
 print(f"See log file for more info.")
@@ -649,26 +644,19 @@ dat_align = alignMasterToRoachTOD(
 dat_align_indices = dat_align['indices']
 
 # slice the common data for this map
-dat_slice = sliceCommon(
-    dat_align['roach_time'], dat_align['ra'], dat_align['dec'], slice_i, slice_f)
+# note that cal lamp is removed in these slices
+# so master tods will be out of sync with A, P, and DF for a while
+TIME = dat_align['roach_time'][slice_i:cal_i]
+RA   = dat_align['ra'][slice_i:cal_i]
+DEC  = dat_align['dec'][slice_i:cal_i]
+
+# generate map bins and axes
+rr, dd, ra_bins, dec_bins, ra_edges, dec_edges = genMapAxesAndBins(
+    RA, DEC, ra_bin, dec_bin)
 
 # delete unneeded vars to free up memory
 del(dat_raw)
 del(dat_align)
-
-# build the meshgrid axis arrays for the map
-rr, dd, rr_bins, dd_bins = precomputeMeshgrid(dat_slice['ra'], dat_slice['dec'], ra_bin, dec_bin)
-
-# build the pixel map bins
-# ra_bins = np.arange(rr.min(), rr.max() + ra_bin, ra_bin)
-# dec_bins = np.arange(dd.min(), dd.max() + dec_bin, dec_bin)
-
-# build the map bin indices arrays for ra and dec
-ra_indices = np.digitize(dat_slice['ra'], rr_bins) - 1
-dec_indices = np.digitize(dat_slice['dec'], dd_bins) - 1
-
-# build a final map shaped nan array for use later
-zz_nan = np.full_like(dd, np.nan)
 
 print("Done.")
 print("Determining KIDs to use... ", end="", flush=True)
@@ -684,7 +672,8 @@ kids.remove(kid_ref)
 kids.insert(0, kid_ref)
 
 # load pre-determined shifts file
-dat_shifts = loadShiftsData(file_shifts, shift_trans)
+try: dat_shifts = loadShiftsData(file_shifts)
+except: dat_shifts = None
 
 # track pixel shifts
 shifts = [] # (kid, ra, dec)
@@ -692,10 +681,11 @@ shifts = [] # (kid, ra, dec)
 
 
 # ============================================================================ #
-# LOOP
+# KID LOOP
 # ============================================================================ #
 
 kid_cnt = 0
+source_coords_ref = None
 zz_A_ref = None
 zz_P_ref = None
 zz_DF_ref = None
@@ -720,6 +710,9 @@ for kid in kids:
     
     try:
             
+# ============================================================================ #
+#   I and Q
+        
         # load KID data
         I, Q, targ = loadKIDData(dir_targ, roach, kid)
 
@@ -727,37 +720,68 @@ for kid in kids:
         I_align, Q_align = alignIQ(I, Q, dat_align_indices)
 
         # slice the KID data for this map
-        I_slice, Q_slice = sliceIQ(I_align, Q_align, slice_i, slice_f)
+        # keep cal lamp in, so will be out of sync with master tods
+        I_slice = I_align[slice_i:cal_f]
+        Q_slice = Q_align[slice_i:cal_f]
 
-        # free up memory
-        del(I, Q, I_align, Q_align)
+        del(I, Q, I_align, Q_align) # done with these
 
+# ============================================================================ #
+#   tods
+
+        # determine amplitude, phase, and df tods
         # amplitude data
         A  = createAmp(I_slice, Q_slice)
-
-        # phase data
         P  = createPhase(I_slice, Q_slice)
-
-        # delta frequency data
         DF = createΔfx_grad(I_slice, Q_slice, *targ)
 
-        # build the pixel values array for the map
-        zz_A, zz_P, zz_DF = buildSingleKIDMaps(A, P, DF, ra_indices, dec_indices, zz_nan)
-        # zz_A, zz_P, zz_DF = buildSingleKIDMaps(
-        #     dat_slice['ra'], dat_slice['dec'], rr, dd, ra_bin, dec_bin, A, P, DF, rr_bins, dd_bins, ra_indices, dec_indices)
+        del(I_slice, Q_slice) # done with these
 
-        # normalize the map values
-        # we lose all absolute reference, but needed to combine
-        # we don't need to keep the originals in memory so overwrite
-        zz_A  = normImage(zz_A)
-        zz_P  = normImage(zz_P)
-        zz_DF = normImage(zz_DF)
+        # invert tod data if peaks are negative
+        A  = invTodIfNegPeaks(A)
+        P  = invTodIfNegPeaks(P)
+        DF = invTodIfNegPeaks(DF)
 
-        # some have inverted values for unknown reasons
-        # so attempt to invert if necessary so source contains max val
-        zz_A  = invertImageIfNeeded(zz_A)
-        zz_P  = invertImageIfNeeded(zz_P)
-        zz_DF = invertImageIfNeeded(zz_DF)
+        # normalize tod data to calibration lamp
+        # make sure tod peaks are positive first
+        A  = normTod(A, cal_i - slice_i, cal_f - slice_i)
+        P  = normTod(P, cal_i - slice_i, cal_f - slice_i)
+        DF = normTod(DF, cal_i - slice_i, cal_f - slice_i)
+
+        # slice away calibration region
+        # brings master and roach tods in sync
+        A    = A[:cal_i - slice_i]
+        P    = P[:cal_i - slice_i]
+        DF   = DF[:cal_i - slice_i]
+
+        # determine tod noise in featureless region
+        # TODO: modify this to find std in high pass filtered timestream
+        A_noise  = todNoise(A, noise_i - slice_i, noise_f - slice_i)
+        P_noise  = todNoise(P, noise_i - slice_i, noise_f - slice_i)
+        DF_noise = todNoise(DF, noise_i - slice_i, noise_f - slice_i)
+        
+# ============================================================================ #
+#   single maps
+
+        # build the binned pixel maps
+        zz_A  = buildSingleKIDMap(A, RA, DEC, ra_edges, dec_edges)
+        zz_P  = buildSingleKIDMap(P, RA, DEC, ra_edges, dec_edges)
+        zz_DF = buildSingleKIDMap(DF, RA, DEC, ra_edges, dec_edges)
+
+        # Normalizing TOD now so don't need this
+        # # normalize the map values
+        # # we lose all absolute reference, but needed to combine
+        # # we don't need to keep the originals in memory so overwrite
+        # zz_A  = normImage(zz_A)
+        # zz_P  = normImage(zz_P)
+        # zz_DF = normImage(zz_DF)
+
+        # inverting TOD so I think we don't need this
+        # # some have inverted values for unknown reasons
+        # # so attempt to invert if necessary so source contains max val
+        # zz_A  = invertImageIfNeeded(zz_A)
+        # zz_P  = invertImageIfNeeded(zz_P)
+        # zz_DF = invertImageIfNeeded(zz_DF)
 
         # use first kid we process as the reference for alignment etc.
         # if kid_ref is None: kid_ref = kid
@@ -767,60 +791,62 @@ for kid in kids:
         
         log.info(f"ref KID = {kid_ref}")
 
-        # load pre-determined shift information
-        try:    shift_to_use = dat_shifts[int(kid)]
-        except: shift_to_use = None
+# ============================================================================ #
+#   shifts
 
-        # # calculate shift for each map from reference
-        # shift_A_bp   = imageShiftToAlign(zz_A_ref, zz_A, brightestPixel)
-        # shift_P_bp   = imageShiftToAlign(zz_P_ref, zz_P, brightestPixel)
-        # shift_DF_bp  = imageShiftToAlign(zz_DF_ref, zz_DF, brightestPixel)
-        # # shift_A_g  = imageShiftToAlign(zz_A_ref, zz_A, fit2DGaussian)
-        # # shift_P_g  = imageShiftToAlign(zz_P_ref, zz_P, fit2DGaussian)
-        # # shift_DF_g = imageShiftToAlign(zz_DF_ref, zz_DF, fit2DGaussian)
+        # TODO: can we align on tods before making single kid maps?
+        # determine pixel shift information from DF
+        if dat_shifts is None:   
+            source_coords = sourceCoords(RA, DEC, DF, DF_noise, peak_s, peak_w)
+            log.info(f"source_coords={source_coords}")
+            if source_coords is None:
+                raise
 
-        # # use the median shift (we have 3 so hopefully at least 2 are the same)
-        # # this is necessary because sometimes the source isn't max val in one map
-        # shift_to_use = np.nanmedian([shift_A_bp, shift_P_bp, shift_DF_bp], axis=0)
+            if source_coords_ref is None: # this is ref kid
+                source_coords_ref = source_coords
+                shift_pix = (0,0)
 
-        # use the mean shift, but only for points close
-        # shift_to_use = meanPoint([shift_A_bp, shift_P_bp, shift_DF_bp, shift_A_g, shift_P_g, shift_DF_g])
-        # shift_to_use = meanPoint([shift_A_bp, shift_P_bp, shift_DF_bp])
+            # calculate pixel shift relative to ref kid
+            else:
+                shift_pix = findPixShift(
+                    source_coords, source_coords_ref, ra_bins, dec_bins)
 
-        # log.info(f"shift_A_bp={shift_A_bp}, shift_P_bp={shift_P_bp}, shift_DF_bp={shift_DF_bp}")
-        # # log.info(f"shift_A_g={shift_A_g}, shift_P_g={shift_P_g}, shift_DF_g={shift_DF_g}")
-        log.info(f"shift_to_use={shift_to_use}")
+        # load pixel shift from file
+        else:
+            shift_pix = dat_shifts[int(kid)]
 
-        # if no shift, skip this KID
-        if shift_to_use is None:
-            log.info(f"No concensus on shift to use - skipping this KID.")
-            print("o", end="", flush=True)
-            continue
+        # pixel shift tracking
+        shifts.append((kid, *shift_pix))
 
-        # tracking the shift to use
-        shifts.append((kid, *shift_to_use))
+        log.info(f"shift_pix={shift_pix}")
 
-        # align the images with chosen shift
-        zz_A  = shift(zz_A, shift_to_use, cval=np.nan, order=0)
-        zz_P  = shift(zz_P, shift_to_use, cval=np.nan, order=0)
-        zz_DF = shift(zz_DF, shift_to_use, cval=np.nan, order=0)
+        # shift the image to align
+        zz_A  = shift(zz_A, np.flip(shift_pix), cval=np.nan, order=0)
+        zz_P  = shift(zz_P, np.flip(shift_pix), cval=np.nan, order=0)
+        zz_DF = shift(zz_DF, np.flip(shift_pix), cval=np.nan, order=0)
         
+# ============================================================================ #
+#   multi maps
+
         # add to combined maps, or create if needed  
         zz_A_multi  = ternNansum(zz_A_multi, zz_A) 
         zz_P_multi  = ternNansum(zz_P_multi, zz_P)
         zz_DF_multi = ternNansum(zz_DF_multi, zz_DF)
-        
+
         # track how many kids had values for each pixel, for mean
         zz_A_kid_cnt  = ternSum(zz_A_kid_cnt, ~np.isnan(zz_A)) 
         zz_P_kid_cnt  = ternSum(zz_P_kid_cnt, ~np.isnan(zz_P))
         zz_DF_kid_cnt = ternSum(zz_DF_kid_cnt, ~np.isnan(zz_DF))
-            
+        
+        del(zz_A, zz_P, zz_DF)
+        gc.collect()
+
         # number of KIDs processed
         kid_cnt += 1
             
         # output final and certain intermediary products
         if kid_cnt in outputAtKidCnt or kid_cnt == len(kids):
-            
+
             # divide sum maps by count to get mean maps for output
             zz_A_out  = np.divide(zz_A_multi, zz_A_kid_cnt, where=zz_A_kid_cnt.astype(bool))
             zz_P_out  = np.divide(zz_P_multi, zz_P_kid_cnt, where=zz_P_kid_cnt.astype(bool))
@@ -832,28 +858,28 @@ for kid in kids:
             # hack to add nans back in
             # I can't figure out why this is needed
             # nans are lost in the divide
-            # zz_A_out[zz_A_kid_cnt==0] = np.nan
-            # zz_P_out[zz_P_kid_cnt==0] = np.nan
-            # zz_DF_out[zz_DF_kid_cnt==0] = np.nan
-            
+            zz_A_out[zz_A_kid_cnt==0] = np.nan
+            zz_P_out[zz_P_kid_cnt==0] = np.nan
+            zz_DF_out[zz_DF_kid_cnt==0] = np.nan
+
+            ## TODO in this next 3 lines is the bug
+
             # generate output arrays
             A_out  = np.array([rr, dd, zz_A_out])
             P_out  = np.array([rr, dd, zz_P_out])
             DF_out = np.array([rr, dd, zz_DF_out])
-            
+
+            del(zz_A_out, zz_P_out, zz_DF_out)
+
             # generate filenames
             file_A  = os.path.join(dir_prods, f"map_A_{kid_cnt}_kids")
             file_P  = os.path.join(dir_prods, f"map_P_{kid_cnt}_kids")
             file_DF = os.path.join(dir_prods, f"map_DF_{kid_cnt}_kids")
-            
+
             # save maps
             np.save(file_A, A_out)
             np.save(file_P, P_out)
             np.save(file_DF, DF_out)
-            
-            # delete intermediary vars from memory
-            # if kid_cnt != len(kids):
-            #     del(zz_A_out, zz_P_out, zz_DF_out, A_out, P_out, DF_out, file_A, file_P, file_DF)
             
         print(".", end="", flush=True)
         if kid_cnt % 100 == 0:
@@ -871,7 +897,7 @@ print(" Done.")
     
     
 # ============================================================================ #
-# POST-LOOP
+# POST
 # ============================================================================ #
 
 print(f"Total number of KIDs contributing to maps = {kid_cnt}")
@@ -887,4 +913,4 @@ np.save(file_DF, DF_out)
 
 np.save(os.path.join(dir_out, "shifts"), shifts)
 
-print("Done.")
+print(f"Done in {timer.deltat():.0f} seconds.")
