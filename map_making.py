@@ -21,6 +21,8 @@ import numpy as np
 import numba as nb
 from datetime import datetime
 from scipy.ndimage import shift
+from scipy.signal import butter
+from scipy.signal import filtfilt
 from scipy.signal import find_peaks
 
 import tracemalloc
@@ -36,7 +38,7 @@ def mem(s):
 
 log_file = "map_making.log"
 
-roach = 1
+roach = 3
 
 # KID to use as the reference for shift table calculations
 kid_ref = {1:'0100', 2:'', 3:'0070', 4:'', 5:''}[roach]
@@ -50,12 +52,16 @@ conv_dec = 8.38190317e-08
 slice_i = {1:37125750, 2:0, 3:37141250, 4:0, 5:0}[roach] # RCW 92
 cal_i   = slice_i + 516_000 # cal lamp
 cal_f   = slice_i + 519_000
-noise_i = slice_i + 140_000 # noise region
-noise_f = slice_i + 200_000
+# noise_i = slice_i + 140_000 # noise region
+# noise_f = slice_i + 200_000
 
 # TOD peak properties for find_peaks
 peak_s = 3   # prominence [multiple of noise]
 peak_w = 100 # width [indices] 
+
+# Noise highpass parameters
+noise_cutoff_freq = 10 # Hz
+noise_order = 3
 
 # map pixel bin sizes to use (determines final resolution)
 ra_bin  = 0.01 # degrees; note RA TOD is converted from hours
@@ -384,29 +390,61 @@ def createΔfx_grad(I, Q, If, Qf):
 
 # ============================================================================ #
 # invTodIfNegPeaks
-def invTodIfNegPeaks(tod):
+def invTodIfNegPeaks(tod, cal_i, cal_f):
     '''Invert TOD if peaks are negative.
     '''
     
-    med = np.median(tod)
+    # only use cal lamp region (works best)
+    d = tod[cal_i:cal_f]
 
-    if (med - tod.min()) > (tod.max() - med):
+    med = np.median(d)
+    if (med - d.min()) > (d.max() - med):
         tod *= -1
         
     return tod
 
 
 # ============================================================================ #
+# butterHighpass
+def butterHighpass(data, t, cutoff_freq, order):
+
+        f_sampling = 1 / (t[1] - t[0])
+        nyquist = 0.5*f_sampling
+        normal_cutoff = cutoff_freq / nyquist
+        b, a = butter(order, normal_cutoff, btype='high', analog=False)
+        filtered_data = filtfilt(b, a, data)
+
+        return filtered_data
+
+
+# ============================================================================ #
 # todNoise
-def todNoise(tod, i_i, i_f):
+def todNoise(tod, t, cutoff_freq, order):
     '''Noise (std) in TOD sample.
 
     tod: (1D array; floats) Time ordered data, e.g. amp, phase, or df.
-    i_i: (int) Sample start index within TOD.
-    i_f: (int) Sample end index within TOD.
+    t: (1D array; floats) Time array.
+    cutoff_freq: (float) The highpass frequency cutoff.
+    order: (int) Butter filter order.
     '''
 
-    return np.std(tod[i_i:i_f])
+    cutoff_freq = 10 # Hz
+    order       = 3
+    filtered_tod = butterHighpass(tod, t, cutoff_freq, order)
+    
+    std = np.std(filtered_tod)
+
+    return std
+
+# def todNoise(tod, i_i, i_f):
+#     '''Noise (std) in TOD sample.
+
+#     tod: (1D array; floats) Time ordered data, e.g. amp, phase, or df.
+#     i_i: (int) Sample start index within TOD.
+#     i_f: (int) Sample end index within TOD.
+#     '''
+
+#     return np.std(tod[i_i:i_f])
 
 
 # ============================================================================ #
@@ -668,8 +706,10 @@ log.info(f"conv_dec   = {conv_dec}")
 log.info(f"slice_i    = {slice_i}")
 log.info(f"cal_i      = {cal_i}")
 log.info(f"cal_f      = {cal_f}")
-log.info(f"noise_i    = {noise_i}")
-log.info(f"noise_f    = {noise_f}")
+# log.info(f"noise_i    = {noise_i}")
+# log.info(f"noise_f    = {noise_f}")
+log.info(f"noise_cutoff_freq = {noise_cutoff_freq}")
+log.info(f"noise_order = {noise_order}")
 log.info(f"ra_bin     = {ra_bin}")
 log.info(f"dec_bin    = {dec_bin}")
 log.info(f"peak_s     = {peak_s}")
@@ -796,9 +836,9 @@ for kid in kids:
         del(I_slice, Q_slice) # done with these
 
         # invert tod data if peaks are negative
-        A  = invTodIfNegPeaks(A)
-        P  = invTodIfNegPeaks(P)
-        DF = invTodIfNegPeaks(DF)
+        A  = invTodIfNegPeaks(A, cal_i - slice_i, cal_f - slice_i)
+        P  = invTodIfNegPeaks(P, cal_i - slice_i, cal_f - slice_i)
+        DF = invTodIfNegPeaks(DF, cal_i - slice_i, cal_f - slice_i)
 
         # normalize tod data to calibration lamp
         # make sure tod peaks are positive first
@@ -813,10 +853,12 @@ for kid in kids:
         DF   = DF[:cal_i - slice_i]
 
         # determine tod noise in featureless region
-        # TODO: modify this to find std in high pass filtered timestream
-        A_noise  = todNoise(A, noise_i - slice_i, noise_f - slice_i)
-        P_noise  = todNoise(P, noise_i - slice_i, noise_f - slice_i)
-        DF_noise = todNoise(DF, noise_i - slice_i, noise_f - slice_i)
+        # A_noise  = todNoise(A, noise_i - slice_i, noise_f - slice_i)
+        # P_noise  = todNoise(P, noise_i - slice_i, noise_f - slice_i)
+        # DF_noise = todNoise(DF, noise_i - slice_i, noise_f - slice_i)
+        A_noise  = todNoise(A, TIME, noise_cutoff_freq, noise_order)
+        P_noise  = todNoise(P, TIME, noise_cutoff_freq, noise_order)
+        DF_noise = todNoise(DF, TIME, noise_cutoff_freq, noise_order)
 
 # ============================================================================ #
 #   single maps
@@ -852,7 +894,6 @@ for kid in kids:
 # ============================================================================ #
 #   shifts
 
-        # TODO: can we align on tods before making single kid maps?
         # determine pixel shift information from DF
         if dat_shifts is None:   
             source_coords = sourceCoords(RA, DEC, DF, DF_noise, peak_s, peak_w)
