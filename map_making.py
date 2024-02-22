@@ -28,7 +28,7 @@ from scipy.signal import find_peaks
 import tracemalloc
 tracemalloc.start()
 def mem(s):
-    return f"{s}: {tracemalloc.get_traced_memory()}"
+    return f"{s}: memory [bytes]: {tracemalloc.get_traced_memory()}"
 
 
 
@@ -40,8 +40,10 @@ log_file = "map_making.log"
 
 roach = 3
 
+maps_to_build = ['A', 'P', 'DF']
+
 # KID to use as the reference for shift table calculations
-kid_ref = {1:'0100', 2:'', 3:'0070', 4:'', 5:''}[roach]
+kid_ref = {1:'0100', 2:'', 3:'0003', 4:'', 5:''}[roach]
 
 # ra and dec TOD conversion factors
 conv_ra  = 5.5879354e-09
@@ -55,17 +57,21 @@ cal_f   = slice_i + 519_000
 # noise_i = slice_i + 140_000 # noise region
 # noise_f = slice_i + 200_000
 
+# tod lowpass filter parameters
+filt_cutoff_freq = 15
+filt_order       = 3
+
 # TOD peak properties for find_peaks
 peak_s = 3   # prominence [multiple of noise]
 peak_w = 100 # width [indices] 
 
 # Noise highpass parameters
 noise_cutoff_freq = 10 # Hz
-noise_order = 3
+noise_order       = 3
 
 # exclusion tolerances (based on DF tod)
-tol_df_std = 0.1
-tol_df_med = 0.01
+tol_std = 0.1
+tol_med = 0.01
 
 # map pixel bin sizes to use (determines final resolution)
 ra_bin  = 0.01 # degrees; note RA TOD is converted from hours
@@ -393,6 +399,24 @@ def createΔfx_grad(I, Q, If, Qf):
 
 
 # ============================================================================ #
+# genTOD
+def genTOD(tod_type, I, Q, If, Qf):
+    '''
+    '''
+
+    if tod_type == 'A':
+        return createAmp(I, Q)
+    
+    elif tod_type == 'P':
+        return createPhase(I, Q)
+    
+    elif tod_type == 'DF':
+        return createΔfx_grad(I, Q, If, Qf)
+    
+    raise Exception(f'Error: Invalid tod_type ({tod_type})')
+
+
+# ============================================================================ #
 # invTodIfNegPeaks
 def invTodIfNegPeaks(tod, cal_i, cal_f):
     '''Invert TOD if peaks are negative.
@@ -422,19 +446,6 @@ def butterFilter(data, t, btype, cutoff_freq, order):
 
 
 # ============================================================================ #
-# butterHighpass
-# def butterHighpass(data, t, cutoff_freq, order):
-
-#         f_sampling = 1 / (t[1] - t[0])
-#         nyquist = 0.5*f_sampling
-#         normal_cutoff = cutoff_freq / nyquist
-#         b, a = butter(order, normal_cutoff, btype='high', analog=False)
-#         filtered_data = filtfilt(b, a, data)
-
-#         return filtered_data
-
-
-# ============================================================================ #
 # todNoise
 def todNoise(tod, t, cutoff_freq, order):
     '''Noise (std) in TOD sample.
@@ -446,24 +457,10 @@ def todNoise(tod, t, cutoff_freq, order):
     '''
 
     filtered_tod = butterFilter(tod, t, 'high', cutoff_freq, order)
-
-    # cutoff_freq = 10 # Hz
-    # order       = 3
-    # filtered_tod = butterHighpass(tod, t, cutoff_freq, order)
     
     std = np.std(filtered_tod)
 
     return std
-
-# def todNoise(tod, i_i, i_f):
-#     '''Noise (std) in TOD sample.
-
-#     tod: (1D array; floats) Time ordered data, e.g. amp, phase, or df.
-#     i_i: (int) Sample start index within TOD.
-#     i_f: (int) Sample end index within TOD.
-#     '''
-
-#     return np.std(tod[i_i:i_f])
 
 
 # ============================================================================ #
@@ -720,15 +717,18 @@ log                = genLog(log_file, dir_out)
 log.info(f"log_file   = {log_file}")
 log.info(f"roach      = {roach}")
 log.info(f"kid_ref    = {kid_ref}")
+log.info(f"{maps_to_build = }")
 log.info(f"conv_ra    = {conv_ra}")
 log.info(f"conv_dec   = {conv_dec}")
 log.info(f"slice_i    = {slice_i}")
 log.info(f"cal_i      = {cal_i}")
 log.info(f"cal_f      = {cal_f}")
-# log.info(f"noise_i    = {noise_i}")
-# log.info(f"noise_f    = {noise_f}")
-log.info(f"noise_cutoff_freq = {noise_cutoff_freq}")
-log.info(f"noise_order = {noise_order}")
+log.info(f"{filt_cutoff_freq = }")
+log.info(f"{filt_order = }")
+log.info(f"{noise_cutoff_freq = }")
+log.info(f"{noise_order = }")
+log.info(f"{tol_std = }")
+log.info(f"{tol_med = }")
 log.info(f"ra_bin     = {ra_bin}")
 log.info(f"dec_bin    = {dec_bin}")
 log.info(f"peak_s     = {peak_s}")
@@ -740,7 +740,7 @@ log.info(f"dir_roach  = {dir_roach}")
 log.info(f"dir_targ   = {dir_targ}")
 log.info(f"file_shifts = {file_shifts}")
 
-print(f"Creating amplitude, phase, and df maps from all KIDs in roach {roach}.")
+print(f"Creating maps: {maps_to_build} in roach {roach}.")
 print(f"See log file for more info.")
 print(f"Output is in: {dir_out}")
 
@@ -795,23 +795,23 @@ shifts = [] # (kid, ra, dec)
 # KID LOOP
 # ============================================================================ #
 
-kid_cnt = 0
-source_coords_ref = None
-zz_A_ref = None
-zz_P_ref = None
-zz_DF_ref = None
-zz_A_multi = None
-zz_P_multi = None
-zz_DF_multi = None
-zz_A_kid_cnt = None
-zz_P_kid_cnt = None
-zz_DF_kid_cnt = None
-
 # output intermediary products at predetermined number of kids
 # [1,2,4,8,16,32,50,100,200,300,...]
 outputAtKidCnt = np.concatenate(([1,2,4,8,16,32,50], np.arange(100, len(kids), 100)))
 
 print("KID progress: ", end="", flush=True)
+
+kid_cnts = {}
+kid_cnt = 0
+source_coords_ref = {}
+zz_ref = {}
+outs = {}
+
+zz_kid_cnt = {}
+zz_multi = {}
+for tod_type in maps_to_build:
+    zz_kid_cnt[tod_type] = None
+    zz_multi[tod_type] = None
 
 for kid in kids:
     
@@ -819,7 +819,7 @@ for kid in kids:
     log.info(f"KID = {kid} ---------------------")
     log.info(f"kid count = {kid_cnt+1}")
 
-    log.info(mem(kid)) # check mem usage per loop
+    log.info(mem('')) # check mem usage per loop
     # TODO increase of ~270 kB per loop
     # not sure if I expect an increase, but this is manageable
     # i.e. 1000 KIDs x 270 kB = 270 MB
@@ -827,11 +827,19 @@ for kid in kids:
     try:
 
 # ============================================================================ #
+#   target sweep
+
+        targ = getTargSweepIQ(kid, dat_targs)
+
+# ============================================================================ #
 #   I and Q
 
         # load KID data
         I, Q = loadKIDData(roach, kid)
-        targ = getTargSweepIQ(kid, dat_targs)
+
+        # stop if I and Q empty
+        if np.median(np.abs(I + 1j*Q)) < 100:
+            raise Exception(f"No data in I and Q.")
 
         # align the KID data
         I_align, Q_align = alignIQ(I, Q, dat_align_indices)
@@ -843,208 +851,187 @@ for kid in kids:
         
         del(I, Q, I_align, Q_align) # done with these
 
-# ============================================================================ #
-#   tods
 
-        # determine amplitude, phase, and df tods
-        # amplitude data
-        A  = createAmp(I_slice, Q_slice)
-        P  = createPhase(I_slice, Q_slice)
-        DF = createΔfx_grad(I_slice, Q_slice, *targ)
+    # this kid is a writeoff, move to next
+    except Exception as e:
+        log.error(f"{e}\n{traceback.format_exc()}")
 
-        del(I_slice, Q_slice) # done with these
+        print("o", end="", flush=True)
+        continue
 
-        # lowpass filter to remove some noise
-        A  = butterFilter(A, TIME, 'low', cutoff_freq=15, order=3)
-        P  = butterFilter(P, TIME, 'low', cutoff_freq=15, order=3)
-        DF = butterFilter(DF, TIME, 'low', cutoff_freq=15, order=3)
-
-        # invert tod data if peaks are negative
-        A  = invTodIfNegPeaks(A, cal_i - slice_i, cal_f - slice_i)
-        P  = invTodIfNegPeaks(P, cal_i - slice_i, cal_f - slice_i)
-        DF = invTodIfNegPeaks(DF, cal_i - slice_i, cal_f - slice_i)
-
-        # normalize tod data to calibration lamp
-        # make sure tod peaks are positive first
-        A  = normTod(A, cal_i - slice_i, cal_f - slice_i)
-        P  = normTod(P, cal_i - slice_i, cal_f - slice_i)
-        DF = normTod(DF, cal_i - slice_i, cal_f - slice_i)
-
-        # slice away calibration region
-        # brings master and roach tods in sync
-        A    = A[:cal_i - slice_i]
-        P    = P[:cal_i - slice_i]
-        DF   = DF[:cal_i - slice_i]
-
-        # determine tod noise in featureless region
-        # A_noise  = todNoise(A, noise_i - slice_i, noise_f - slice_i)
-        # P_noise  = todNoise(P, noise_i - slice_i, noise_f - slice_i)
-        # DF_noise = todNoise(DF, noise_i - slice_i, noise_f - slice_i)
-        A_noise  = todNoise(A, TIME, noise_cutoff_freq, noise_order)
-        P_noise  = todNoise(P, TIME, noise_cutoff_freq, noise_order)
-        DF_noise = todNoise(DF, TIME, noise_cutoff_freq, noise_order)
-
-        # exclude KIDs with too much noise after normalization
-        if (np.std(DF) > tol_df_std) or (np.median(DF) > tol_df_med):
-            raise Exception(f"Bad: {np.std(DF)=}, {np.median(DF)=}, {np.mean(DF)=}") 
 
 # ============================================================================ #
-#   single maps
+#   MAP LOOP
+    
+    map_cnt = 0
+    df_success = False
+    for tod_type in maps_to_build:
+        log.info(f"Processing map type {tod_type}")
 
-        # build the binned pixel maps
-        zz_A  = buildSingleKIDMap(A, RA, DEC, ra_edges, dec_edges)
-        zz_P  = buildSingleKIDMap(P, RA, DEC, ra_edges, dec_edges)
-        zz_DF = buildSingleKIDMap(DF, RA, DEC, ra_edges, dec_edges)
+        # each map type has a separate kid count
+        if kid == kid_ref:
+            kid_cnts[tod_type] = 0
 
-        # Normalizing TOD now so don't need this
-        # # normalize the map values
-        # # we lose all absolute reference, but needed to combine
-        # # we don't need to keep the originals in memory so overwrite
-        # zz_A  = normImage(zz_A)
-        # zz_P  = normImage(zz_P)
-        # zz_DF = normImage(zz_DF)
-
-        # inverting TOD so I think we don't need this
-        # # some have inverted values for unknown reasons
-        # # so attempt to invert if necessary so source contains max val
-        # zz_A  = invertImageIfNeeded(zz_A)
-        # zz_P  = invertImageIfNeeded(zz_P)
-        # zz_DF = invertImageIfNeeded(zz_DF)
-
-        # use first kid we process as the reference for alignment etc.
-        # if kid_ref is None: kid_ref = kid
-        if zz_A_ref is None:  zz_A_ref = zz_A
-        if zz_P_ref is None:  zz_P_ref = zz_P
-        if zz_DF_ref is None: zz_DF_ref = zz_DF
-        
-        log.info(f"ref KID = {kid_ref}")
+        try:
 
 # ============================================================================ #
-#   shifts
+#     tod
 
-        # determine pixel shift information from DF
-        if dat_shifts is None:   
-            source_coords = sourceCoords(RA, DEC, DF, DF_noise, peak_s, peak_w)
-            log.info(f"source_coords={source_coords}")
-            if source_coords is None:
-                raise
+            # build tod
+            tod = genTOD(tod_type, I_slice, Q_slice, *targ)
 
-            if source_coords_ref is None: # this is ref kid
-                source_coords_ref = source_coords
-                shift_pix = (0,0)
+            # lowpass filter to remove some noise
+            tod = butterFilter(tod, TIME, 'low', filt_cutoff_freq, filt_order)
 
-            # calculate pixel shift relative to ref kid
+            # invert tod data if peaks are negative
+            tod = invTodIfNegPeaks(tod, cal_i - slice_i, cal_f - slice_i)
+
+            # normalize tod data to calibration lamp
+            # make sure tod peaks are positive first
+            tod = normTod(tod, cal_i - slice_i, cal_f - slice_i)
+
+            # slice away calibration region
+            # brings master and roach tods in sync
+            tod = tod[:cal_i - slice_i]
+
+            # determine tod noise in featureless region
+            tod_noise  = todNoise(tod, TIME, noise_cutoff_freq, noise_order)
+
+            # exclude KIDs with too much noise after normalization
+            if (np.std(tod) > tol_std) or (np.median(tod) > tol_med):
+                log.info(f"Over tolerance: {np.std(tod)=}, {np.median(tod)=}")
+                continue
+                # raise Exception(f"Bad {np.std(tod)=}, {np.median(tod)=}")
+
+# ============================================================================ #
+#     single map
+
+            # build the binned pixel maps
+            zz  = buildSingleKIDMap(tod, RA, DEC, ra_edges, dec_edges)
+
+            # use first kid we process as the reference for alignment etc.
+            if kid == kid_ref:
+                zz_ref[tod_type] = zz
+
+# ============================================================================ #
+#     shift
+
+            # load pixel shift info from file
+            if dat_shifts:
+                shift_pix = dat_shifts[int(kid)]
+
+            # or determine pixel shift information from tod
             else:
-                shift_pix = findPixShift(
-                    source_coords, source_coords_ref, ra_bins, dec_bins)
+                source_coords = sourceCoords(
+                    RA, DEC, tod, tod_noise, peak_s, peak_w)
+                log.info(f"source_coords={source_coords}")
+                if source_coords is None:
+                    raise Exception(f"Could not determine source coords.")
 
-        # load pixel shift from file
-        else:
-            shift_pix = dat_shifts[int(kid)]
+                if kid is kid_ref:
+                    source_coords_ref[tod_type] = source_coords
+                    shift_pix = (0,0)
 
-        # pixel shift tracking
-        shifts.append((kid, *shift_pix))
+                # calculate pixel shift relative to ref kid
+                else:
+                    shift_pix = findPixShift(
+                        source_coords, source_coords_ref[tod_type], 
+                        ra_bins, dec_bins)
 
-        log.info(f"shift_pix={shift_pix}")
+            # pixel shift tracking
+            shifts.append((kid, *shift_pix))
 
-        # shift the image to align
-        zz_A  = shift(zz_A, np.flip(shift_pix), cval=np.nan, order=0)
-        zz_P  = shift(zz_P, np.flip(shift_pix), cval=np.nan, order=0)
-        zz_DF = shift(zz_DF, np.flip(shift_pix), cval=np.nan, order=0)
+            log.info(f"shift_pix={shift_pix}")
 
-        # output each single map
-        # A_out  = np.array([rr, dd, zz_A])
-        # P_out  = np.array([rr, dd, zz_P])
-        # DF_out = np.array([rr, dd, zz_DF])
-        # file_A  = os.path.join(dir_prods, f"map_A_{kid_cnt}_kids")
-        # file_P  = os.path.join(dir_prods, f"map_P_{kid_cnt}_kids")
-        # file_DF = os.path.join(dir_prods, f"map_DF_{kid_cnt}_kids")
-        # np.save(file_A, A_out)
-        # np.save(file_P, P_out)
-        # np.save(file_DF, DF_out)
-        # kid_cnt += 1
+            # shift the image to align
+            zz  = shift(zz, np.flip(shift_pix), cval=np.nan, order=0)
+
+
+            # output each single map
+            # out  = np.array([rr, dd, zz])
+            # file  = os.path.join(dir_prods, f"map_{tod_type}_{kid_cnt[tod_type]}_kids")
+            # np.save(file, out)
+            # kid_cnt[tod_type] += 1
 
 # ============================================================================ #
-#   multi maps
+#     multi map
 
-        # add to combined maps, or create if needed  
-        zz_A_multi  = ternNansum(zz_A_multi, zz_A) 
-        zz_P_multi  = ternNansum(zz_P_multi, zz_P)
-        zz_DF_multi = ternNansum(zz_DF_multi, zz_DF)
+            # add to combined maps, or create if needed  
+            zz_multi[tod_type] = ternNansum(zz_multi[tod_type], zz) 
 
-        # track how many kids had values for each pixel, for mean
-        zz_A_kid_cnt  = ternSum(zz_A_kid_cnt, ~np.isnan(zz_A)) 
-        zz_P_kid_cnt  = ternSum(zz_P_kid_cnt, ~np.isnan(zz_P))
-        zz_DF_kid_cnt = ternSum(zz_DF_kid_cnt, ~np.isnan(zz_DF))
+            # track how many kids had values for each pixel, for mean
+            zz_kid_cnt[tod_type] = ternSum(zz_kid_cnt[tod_type], ~np.isnan(zz)) 
         
-        del(zz_A, zz_P, zz_DF)
-        gc.collect()
-
-        # number of KIDs processed
-        kid_cnt += 1
+            del(zz)
             
-        # output final and certain intermediary products
-        if kid_cnt in outputAtKidCnt or kid_cnt == len(kids):
-
-            # divide sum maps by count to get mean maps for output
-            zz_A_out  = np.divide(zz_A_multi, zz_A_kid_cnt, where=zz_A_kid_cnt.astype(bool))
-            zz_P_out  = np.divide(zz_P_multi, zz_P_kid_cnt, where=zz_P_kid_cnt.astype(bool))
-            zz_DF_out = np.divide(zz_DF_multi, zz_DF_kid_cnt, where=zz_DF_kid_cnt.astype(bool))
-            
+            # divide sum map by count to get mean map for output
+            zz_out  = np.divide(
+                zz_multi[tod_type], zz_kid_cnt[tod_type], 
+                where=zz_kid_cnt[tod_type].astype(bool))
+        
             # hack to add nans back in
             # I can't figure out why this is needed
             # nans are lost in the divide
-            zz_A_out[zz_A_kid_cnt==0] = np.nan
-            zz_P_out[zz_P_kid_cnt==0] = np.nan
-            zz_DF_out[zz_DF_kid_cnt==0] = np.nan
+            zz_out[zz_kid_cnt[tod_type]==0] = np.nan
 
-            # generate output arrays
-            A_out  = np.array([rr, dd, zz_A_out])
-            P_out  = np.array([rr, dd, zz_P_out])
-            DF_out = np.array([rr, dd, zz_DF_out])
+            # generate output array
+            out  = np.array([rr, dd, zz_out])
+            outs[tod_type] = out
 
-            del(zz_A_out, zz_P_out, zz_DF_out)
+# ============================================================================ #
+#     output
 
-            # generate filenames
-            file_A  = os.path.join(dir_prods, f"map_A_{kid_cnt}_kids")
-            file_P  = os.path.join(dir_prods, f"map_P_{kid_cnt}_kids")
-            file_DF = os.path.join(dir_prods, f"map_DF_{kid_cnt}_kids")
+            # output intermediary products
+            if (kid_cnts[tod_type]+1 in outputAtKidCnt):
+                fname = f"map_{tod_type}_{kid_cnts[tod_type]+1}_kids"
+                np.save(os.path.join(dir_prods, fname), out)
 
-            # save maps
-            np.save(file_A, A_out)
-            np.save(file_P, P_out)
-            np.save(file_DF, DF_out)
-            
+            del(zz_out, out)
+
+# ============================================================================ #
+#     map wrapup
+
+            if tod_type == 'DF':
+                df_success = True
+
+            kid_cnts[tod_type] += 1
+
+        # this map failed, move to next map type
+        except Exception as e:
+            log.error(f"{e}\n{traceback.format_exc()}")
+
+            continue
+
+# ============================================================================ #
+#   kid wrapup
+
+    # done with maps for this kid
+    if df_success:
+        kid_cnt += 1
         print(".", end="", flush=True)
-        if kid_cnt % 100 == 0:
-            print(kid_cnt, end="", flush=True)
+    else:
+        print("o", end="", flush=True)
 
-    # something broke, move to next KID
-    except Exception as e:
-        # log.info(e)
-        log.error(f"{e}\n{traceback.format_exc()}")
+    if kid_cnt % 100 == 0 and kid_cnt > 0:
+        print(kid_cnt, end="", flush=True)
 
-        print("0", end="", flush=True)
-        continue
+    gc.collect()
     
-print(" Done.")
 
-    
     
 # ============================================================================ #
 # POST
 # ============================================================================ #
 
-print(f"Total number of KIDs contributing to maps = {kid_cnt}")
+print(" Done.")
+print(f"Total number of KIDs contributing to maps = {kid_cnts}")
 print("Saving final maps... ", end="")
 
-# output final maps
-file_A  = os.path.join(dir_out, f"map_A")
-file_P  = os.path.join(dir_out, f"map_P")
-file_DF = os.path.join(dir_out, f"map_DF")
-np.save(file_A, A_out)
-np.save(file_P, P_out)
-np.save(file_DF, DF_out)
+for tod_type in maps_to_build:
+
+    # output final maps
+    file  = os.path.join(dir_out, f"map_{tod_type}")
+    np.save(file, outs[tod_type])
 
 np.save(os.path.join(dir_out, "shifts"), shifts)
 
