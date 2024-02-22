@@ -362,8 +362,13 @@ def createΔfx_grad(I, Q, If, Qf):
         
     dIfdf = np.diff(If)/1e3        # Δx is const. so Δy=dI/df
     dQfdf = np.diff(Qf)/1e3        # /1e3 for units
-    dIfdff0 = dIfdf[len(dIfdf)//2] # dI(f)/df at f0
-    dQfdff0 = dQfdf[len(dQfdf)//2] # assume f0 is centre index
+    
+    Zf = np.abs(If + 1j*Qf)
+    i_f0 = np.argmin(Zf)
+    
+    dIfdff0 = dIfdf[i_f0]          # dI(f)/df at f0
+    dQfdff0 = dQfdf[i_f0]
+    
     I_n = I - np.mean(I)           # centre values on 0
     Q_n = Q - np.mean(Q)           #
     
@@ -372,8 +377,8 @@ def createΔfx_grad(I, Q, If, Qf):
     numx = ((I_n*dIfdff0 + Q_n*dQfdff0))
     Δfx = numx/den
     
-    numy = ((Q_n*dIfdff0 - I_n*dQfdff0))
-    Δfy = numy/den
+    # numy = ((Q_n*dIfdff0 - I_n*dQfdff0))
+    # Δfy = numy/den
     
     return Δfx
 
