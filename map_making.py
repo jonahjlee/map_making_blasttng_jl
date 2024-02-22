@@ -201,20 +201,38 @@ def loadCommonData(roach, dir_master, dir_roach, conv_ra, conv_dec):
 
 # ============================================================================ #
 # loadTargSweep
-def loadTargSweep(kid, dir_targ):
+def loadTargSweepsData(dir_targ):
     '''Targ sweep for chan.
+    
+    dir_targ: (str or path) The absolute filename str or path.
     '''
     
-    kid = int(kid)
+    pattern = r'^\d{9}\.dat$'
+    files = os.listdir(dir_targ)
+    matched_files = [f for f in files if re.match(pattern, f)]
+    sorted_files = sorted(matched_files)
     
-    pattern = re.compile(r'^\d{9}\.dat$') # e.g. '849913000.dat'
     dat_targ = np.array([
         np.fromfile(os.path.join(dir_targ, f), dtype = '<f')
-        for f in os.listdir(dir_targ) if pattern.match(f)])
-    I = dat_targ[::2, kid]
-    Q = dat_targ[1::2, kid]
+        for f in sorted_files
+    ])
     
-    return I,Q
+    return dat_targs
+
+
+# ============================================================================ #
+# getTargSweepIQ
+def getTargSweepIQ(kid, dat_targs):
+    '''Filter roach targs for target sweep for this kid.
+    
+    kid: (int) The KID number.
+    dat_targs: (2D array; floats) Array of all target sweeps for this roach.
+    '''
+    
+    I = dat_targs[::2, int(kid)]
+    Q = dat_targs[1::2, int(kid)]
+    
+    return I, Q
 
 
 # ============================================================================ #
@@ -303,16 +321,6 @@ def alignMasterToRoachTOD(master_time, roach_time, ra, dec):
     ret = _alignMasterToRoachTOD(master_time, roach_time, ra, dec)
 
     indices, master_time_a, ra_a, dec_a, roach_time_aligned = ret
-
-    # dat_align = {
-    #     'indices'    : indices,
-    #     'master_time': master_time_a,
-    #     "ra"         : ra_a,
-    #     "dec"        : dec_a,
-    #     'roach_time' : roach_time_aligned,
-    # }
-
-    # return dat_align
 
     return indices, ra_a, dec_a, roach_time_aligned
    
@@ -677,6 +685,7 @@ print("Performing pre-KID processing... ", end="", flush=True)
 
 # load the common data
 dat_raw = loadCommonData(roach, dir_master, dir_roach, conv_ra, conv_dec)
+dat_targs = loadTargSweepsData(dir_targ)
 
 # align the master and roach data
 dat_align_indices, ra_a, dec_a, roach_time_aligned = alignMasterToRoachTOD(
@@ -758,7 +767,8 @@ for kid in kids:
 #   I and Q
 
         # load KID data
-        I, Q, targ = loadKIDData(dir_targ, roach, kid)
+        I, Q = loadKIDData(roach, kid)
+        targ = getTargSweepIQ(kid, dat_targs)
 
         # align the KID data
         I_align, Q_align = alignIQ(I, Q, dat_align_indices)
