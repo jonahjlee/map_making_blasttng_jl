@@ -63,6 +63,10 @@ peak_w = 100 # width [indices]
 noise_cutoff_freq = 10 # Hz
 noise_order = 3
 
+# exclusion tolerances (based on DF tod)
+tol_df_std = 0.1
+tol_df_med = 0.01
+
 # map pixel bin sizes to use (determines final resolution)
 ra_bin  = 0.01 # degrees; note RA TOD is converted from hours
 dec_bin = 0.01 # degrees
@@ -405,16 +409,29 @@ def invTodIfNegPeaks(tod, cal_i, cal_f):
 
 
 # ============================================================================ #
+# butterFilter
+def butterFilter(data, t, btype, cutoff_freq, order):
+
+    f_sampling = 1 / (t[1] - t[0])
+    nyquist = 0.5*f_sampling
+    normal_cutoff = cutoff_freq / nyquist
+    b, a = butter(order, normal_cutoff, btype=btype, analog=False)
+    filtered_data = filtfilt(b, a, data)
+
+    return filtered_data
+
+
+# ============================================================================ #
 # butterHighpass
-def butterHighpass(data, t, cutoff_freq, order):
+# def butterHighpass(data, t, cutoff_freq, order):
 
-        f_sampling = 1 / (t[1] - t[0])
-        nyquist = 0.5*f_sampling
-        normal_cutoff = cutoff_freq / nyquist
-        b, a = butter(order, normal_cutoff, btype='high', analog=False)
-        filtered_data = filtfilt(b, a, data)
+#         f_sampling = 1 / (t[1] - t[0])
+#         nyquist = 0.5*f_sampling
+#         normal_cutoff = cutoff_freq / nyquist
+#         b, a = butter(order, normal_cutoff, btype='high', analog=False)
+#         filtered_data = filtfilt(b, a, data)
 
-        return filtered_data
+#         return filtered_data
 
 
 # ============================================================================ #
@@ -428,9 +445,11 @@ def todNoise(tod, t, cutoff_freq, order):
     order: (int) Butter filter order.
     '''
 
-    cutoff_freq = 10 # Hz
-    order       = 3
-    filtered_tod = butterHighpass(tod, t, cutoff_freq, order)
+    filtered_tod = butterFilter(tod, t, 'high', cutoff_freq, order)
+
+    # cutoff_freq = 10 # Hz
+    # order       = 3
+    # filtered_tod = butterHighpass(tod, t, cutoff_freq, order)
     
     std = np.std(filtered_tod)
 
@@ -835,6 +854,11 @@ for kid in kids:
 
         del(I_slice, Q_slice) # done with these
 
+        # lowpass filter to remove some noise
+        A  = butterFilter(A, TIME, 'low', cutoff_freq=15, order=3)
+        P  = butterFilter(P, TIME, 'low', cutoff_freq=15, order=3)
+        DF = butterFilter(DF, TIME, 'low', cutoff_freq=15, order=3)
+
         # invert tod data if peaks are negative
         A  = invTodIfNegPeaks(A, cal_i - slice_i, cal_f - slice_i)
         P  = invTodIfNegPeaks(P, cal_i - slice_i, cal_f - slice_i)
@@ -859,6 +883,10 @@ for kid in kids:
         A_noise  = todNoise(A, TIME, noise_cutoff_freq, noise_order)
         P_noise  = todNoise(P, TIME, noise_cutoff_freq, noise_order)
         DF_noise = todNoise(DF, TIME, noise_cutoff_freq, noise_order)
+
+        # exclude KIDs with too much noise after normalization
+        if (np.std(DF) > tol_df_std) or (np.median(DF) > tol_df_med):
+            raise Exception(f"Bad: {np.std(DF)=}, {np.median(DF)=}, {np.mean(DF)=}") 
 
 # ============================================================================ #
 #   single maps
@@ -924,6 +952,18 @@ for kid in kids:
         zz_P  = shift(zz_P, np.flip(shift_pix), cval=np.nan, order=0)
         zz_DF = shift(zz_DF, np.flip(shift_pix), cval=np.nan, order=0)
 
+        # output each single map
+        # A_out  = np.array([rr, dd, zz_A])
+        # P_out  = np.array([rr, dd, zz_P])
+        # DF_out = np.array([rr, dd, zz_DF])
+        # file_A  = os.path.join(dir_prods, f"map_A_{kid_cnt}_kids")
+        # file_P  = os.path.join(dir_prods, f"map_P_{kid_cnt}_kids")
+        # file_DF = os.path.join(dir_prods, f"map_DF_{kid_cnt}_kids")
+        # np.save(file_A, A_out)
+        # np.save(file_P, P_out)
+        # np.save(file_DF, DF_out)
+        # kid_cnt += 1
+
 # ============================================================================ #
 #   multi maps
 
@@ -950,9 +990,6 @@ for kid in kids:
             zz_A_out  = np.divide(zz_A_multi, zz_A_kid_cnt, where=zz_A_kid_cnt.astype(bool))
             zz_P_out  = np.divide(zz_P_multi, zz_P_kid_cnt, where=zz_P_kid_cnt.astype(bool))
             zz_DF_out = np.divide(zz_DF_multi, zz_DF_kid_cnt, where=zz_DF_kid_cnt.astype(bool))
-            # zz_A_out  = zz_A_multi/kid_cnt
-            # zz_P_out  = zz_P_multi/kid_cnt
-            # zz_DF_out = zz_DF_multi/kid_cnt
             
             # hack to add nans back in
             # I can't figure out why this is needed
@@ -960,8 +997,6 @@ for kid in kids:
             zz_A_out[zz_A_kid_cnt==0] = np.nan
             zz_P_out[zz_P_kid_cnt==0] = np.nan
             zz_DF_out[zz_DF_kid_cnt==0] = np.nan
-
-            ## TODO in this next 3 lines is the bug
 
             # generate output arrays
             A_out  = np.array([rr, dd, zz_A_out])
