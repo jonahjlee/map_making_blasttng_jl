@@ -69,19 +69,19 @@ dir_conv   = dir_root + 'converted/' # converted npy's
 dir_master = dir_conv + 'master_2020-01-06-06-21-22/'
 if roach == 1:
     dir_roach   = dir_conv + f'roach1_2020-01-06-06-22-01/'
-    dir_targ    = dir_root + f'roach_flight/roach1/targ/Mon_Jan__6_06_00_33_2020/'
+    dir_targ    = dir_root + f'roach_flight/roach1/targ/Tue_Jan__7_00_55_50_2020/'
 elif roach == 2:
-    dir_roach   = dir_conv + f''
-    dir_targ    = dir_root + f''
+    dir_roach   = dir_conv + f'roach2_2020-01-06-06-22-01/'
+    dir_targ    = dir_root + f'roach_flight/roach2/targ/Tue_Jan__7_00_55_50_2020/'
 elif roach == 3:
     dir_roach   = dir_conv + f'roach3_2020-01-06-06-21-56/'
-    dir_targ    = dir_root + f'roach_flight/roach3/targ/Mon_Jan__6_06_00_34_2020/'
+    dir_targ    = dir_root + f'roach_flight/roach3/targ/Tue_Jan__7_00_55_51_2020/'
 elif roach == 4:
-    dir_roach   = dir_conv + f''
-    dir_targ    = dir_root + f''
+    dir_roach   = dir_conv + f'roach4_2020-01-06-06-22-01/'
+    dir_targ    = dir_root + f'roach_flight/roach4/targ/Tue_Jan__7_00_55_50_2020/'
 elif roach == 5:
-    dir_roach   = dir_conv + f''
-    dir_targ    = dir_root + f''
+    dir_roach   = dir_conv + f'roach5_2020-01-06-06-22-01/'
+    dir_targ    = dir_root + f'roach_flight/roach5/targ/Tue_Jan__7_00_55_51_2020/'
 
 # map shifts file
 dir_shifts = dir_conv + 'shifts/'
@@ -212,7 +212,7 @@ def loadTargSweepsData(dir_targ):
     matched_files = [f for f in files if re.match(pattern, f)]
     sorted_files = sorted(matched_files)
     
-    dat_targ = np.array([
+    dat_targs = np.array([
         np.fromfile(os.path.join(dir_targ, f), dtype = '<f')
         for f in sorted_files
     ])
@@ -281,15 +281,14 @@ def findAllKIDs(directory):
 
 # ============================================================================ #
 # loadKIDData
-def loadKIDData(dir_targ, roach, kid):
+def loadKIDData(roach, kid):
     '''Loads KID specific data into memory.
     '''
     
     I = np.load(dir_roach + f'i_kid{kid}_roach{roach}.npy').byteswap()
     Q = np.load(dir_roach + f'q_kid{kid}_roach{roach}.npy').byteswap()
-    targ  = loadTargSweep(kid, dir_targ)
     
-    return I, Q, targ
+    return I, Q
 
 
 # ============================================================================ #
