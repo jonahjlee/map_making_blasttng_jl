@@ -17,6 +17,7 @@ import time
 import logging
 import warnings
 import traceback
+import tracemalloc
 import numpy as np
 import numba as nb
 from datetime import datetime
@@ -24,11 +25,6 @@ from scipy.ndimage import shift
 from scipy.signal import butter
 from scipy.signal import filtfilt
 from scipy.signal import find_peaks
-
-import tracemalloc
-tracemalloc.start()
-def mem(s):
-    return f"{s}: memory [bytes]: {tracemalloc.get_traced_memory()}"
 
 
 
@@ -38,9 +34,12 @@ def mem(s):
 
 log_file = "map_making.log"
 
-roach = 3
+roach = 1
 
-maps_to_build = ['A', 'P', 'DF']
+maps_to_build = ['DF'] # options: ['A', 'P', 'DF']
+
+# first unused KID channel (2469 total used channels)
+kid_max = {1:380, 2:474, 3:667, 4:498, 5:450}[roach]
 
 # KID to use as the reference for shift table calculations
 kid_ref = {1:'0100', 2:'', 3:'0003', 4:'', 5:''}[roach]
@@ -111,6 +110,22 @@ file_shifts = dir_shifts + f'shifts_roach{roach}.npy'
 
 
 # ============================================================================ #
+# Timer
+class Timer:
+    def __init__(self):
+        self.time_i = time.time()
+    
+    def deltat(self):
+        return time.time() - self.time_i
+    
+
+# ============================================================================ #
+# mem
+def mem(s):
+    return f"{s}: memory [bytes]: {tracemalloc.get_traced_memory()}"
+
+
+# ============================================================================ #
 # timestamp
 def genTimestamp():
     '''String timestamp of current time (UTC) for use in filenames.
@@ -147,16 +162,6 @@ def genLog(log_file, log_dir):
 
 
 # ============================================================================ #
-# Timer
-class Timer:
-    def __init__(self):
-        self.time_i = time.time()
-    
-    def deltat(self):
-        return time.time() - self.time_i
-
-    
-# ============================================================================ #
 # genDirsForRun
 def genDirsForRun(suffix):
     '''Generate needed directories for this run.
@@ -186,8 +191,7 @@ def loadCommonData(roach, dir_master, dir_roach, conv_ra, conv_dec):
     master_dec       = np.load(dir_master + 'dec.npy')
     master_time      = np.load(dir_master + 'time.npy')
     master_time_usec = np.load(dir_master + 'time_usec.npy')
-    roach_time       = np.load(dir_roach + f'ctime_built_roach{roach}.npy').byteswap()
-    # byteswap is needed because conversion didn't account for endianness correctly
+    roach_time       = np.load(dir_roach + f'ctime_built_roach{roach}.npy')
 
     # create a combined time field
     master_time = master_time.astype('float64')
@@ -300,9 +304,11 @@ def findAllKIDs(directory):
 def loadKIDData(roach, kid):
     '''Loads KID specific data into memory.
     '''
-    
-    I = np.load(dir_roach + f'i_kid{kid}_roach{roach}.npy').byteswap()
-    Q = np.load(dir_roach + f'q_kid{kid}_roach{roach}.npy').byteswap()
+
+    I = np.load(dir_roach + f'i_kid{kid}_roach{roach}.npy', 
+                allow_pickle=False, mmap_mode='r')
+    Q = np.load(dir_roach + f'q_kid{kid}_roach{roach}.npy', 
+                allow_pickle=False, mmap_mode='r')
     
     return I, Q
 
@@ -317,13 +323,12 @@ def _alignMasterToRoachTOD(master_time, roach_time, ra, dec):
     # interpolate master TOD
     x = np.arange(len(master_time))
     new_x = np.linspace(x[0], x[-1], len(roach_time))
-    master_time_a = np.interp(new_x, x, master_time)#, left=np.nan, right=np.nan)
-    ra_a   = np.interp(new_x, x, ra)#, left=np.nan, right=np.nan)
-    dec_a  = np.interp(new_x, x, dec)#, left=np.nan, right=np.nan)
+    master_time_a = np.interp(new_x, x, master_time)
+    ra_a   = np.interp(new_x, x, ra)
+    dec_a  = np.interp(new_x, x, dec)
     
     # assumes both arrays are sorted ascending...
     indices = np.searchsorted(roach_time, master_time_a, side='left')
-    # indices = np.digitize(master_time_a, dat['roach_time'], right=True)
     
     # fixed max index bug from np.searchsorted
     indices[indices == len(roach_time)] = len(roach_time) - 1 
@@ -404,16 +409,12 @@ def genTOD(tod_type, I, Q, If, Qf):
     '''
     '''
 
-    if tod_type == 'A':
-        return createAmp(I, Q)
-    
-    elif tod_type == 'P':
-        return createPhase(I, Q)
-    
-    elif tod_type == 'DF':
-        return createΔfx_grad(I, Q, If, Qf)
-    
-    raise Exception(f'Error: Invalid tod_type ({tod_type})')
+    match tod_type:
+        case 'A' : return createAmp(I, Q)
+        case 'P' : return createPhase(I, Q)
+        case 'DF': return createΔfx_grad(I, Q, If, Qf)
+        
+        case _: raise Exception(f'Error: Invalid tod_type ({tod_type})')
 
 
 # ============================================================================ #
@@ -592,14 +593,6 @@ def genMapAxesAndBins(ra, dec, ra_bin, dec_bin):
     ra_bin/dec_bin: (float) RA/DEC bin size [degrees].
     '''
 
-    # num_ra_bins  = int(np.ceil((ra.max() - ra.min()) / ra_bin))
-    # num_dec_bins = int(np.ceil((dec.max() - dec.min()) / dec_bin))
-
-    # ra_edges  = np.linspace(ra.min(), ra.max(), num_ra_bins + 1)
-    # dec_edges = np.linspace(dec.min(), dec.max(), num_dec_bins + 1)
-
-    # rr, dd = np.meshgrid(ra_edges, dec_edges)
-
     ra_bins  = np.arange(np.min(ra), np.max(ra), ra_bin)
     dec_bins = np.arange(np.min(dec), np.max(dec), dec_bin)
 
@@ -709,6 +702,8 @@ def ternSum(var, val):
 # PRE
 # ============================================================================ #
 
+tracemalloc.start()
+
 timer              = Timer()
 timestamp          = genTimestamp()
 dir_out, dir_prods = genDirsForRun(timestamp)
@@ -773,7 +768,7 @@ print("Done.")
 print("Determining KIDs to use... ", end="", flush=True)
 
 # pull in all the possible kids from the files in dir_roach
-kids = findAllKIDs(dir_roach)
+kids = findAllKIDs(dir_roach) # sorted
 
 print(f"found {len(kids)}... Done.")
 log.info(f"Found {len(kids)} KIDs to use.")
@@ -813,17 +808,23 @@ for tod_type in maps_to_build:
     zz_kid_cnt[tod_type] = None
     zz_multi[tod_type] = None
 
+loop_cnt = 0
 for kid in kids:
-    
-    log.info(f"delta_t = {timer.deltat()}")
+    loop_cnt += 1
+
     log.info(f"KID = {kid} ---------------------")
+
+    # do not proceed with KID channels above max
+    if int(kid) >= kid_max:
+        log.info(f"Unused channels past here, skipping.")
+        break
+
+    log.info(f"delta_t = {timer.deltat()}")
     log.info(f"kid count = {kid_cnt+1}")
 
     log.info(mem('')) # check mem usage per loop
-    # TODO increase of ~270 kB per loop
-    # not sure if I expect an increase, but this is manageable
-    # i.e. 1000 KIDs x 270 kB = 270 MB
-    
+
+
     try:
 
 # ============================================================================ #
@@ -834,23 +835,33 @@ for kid in kids:
 # ============================================================================ #
 #   I and Q
 
+        # loadKIDData_pretime = timer.deltat()
         # load KID data
         I, Q = loadKIDData(roach, kid)
+        # ~3.5 s; ~0.9 s just for byteswaps
+            # can we just load the slice we need?
+            # would need to deal with alignIQ on just the slice
+        # log.info(f"loadKIDData time = {timer.deltat()-loadKIDData_pretime}")
 
-        # stop if I and Q empty
-        if np.median(np.abs(I + 1j*Q)) < 100:
-            raise Exception(f"No data in I and Q.")
+        # # stop if I and Q empty
+        # if np.median(np.abs(I + 1j*Q)) < 100:
+        #     log.info(f"No data in I and Q.")
+        #     continue
+        #     raise Exception(f"No data in I and Q.")
+        # # not necessary anymore since not loading unused KID channels
 
-        # align the KID data
-        I_align, Q_align = alignIQ(I, Q, dat_align_indices)
+        # # align the KID data
+        # I_align, Q_align = alignIQ(I, Q, dat_align_indices)
 
-        # slice the KID data for this map
-        # keep cal lamp in, so will be out of sync with master tods
-        I_slice = I_align[slice_i:cal_f]
-        Q_slice = Q_align[slice_i:cal_f]
+        # # slice the KID data for this map
+        # # keep cal lamp in, so will be out of sync with master tods
+        # I_slice = I_align[slice_i:cal_f]
+        # Q_slice = Q_align[slice_i:cal_f]
+
+        I_slice, Q_slice = alignIQ(I, Q, dat_align_indices[slice_i:cal_f])
         
-        del(I, Q, I_align, Q_align) # done with these
-
+        # del(I, Q, I_align, Q_align) # done with these
+        del(I, Q)
 
     # this kid is a writeoff, move to next
     except Exception as e:
@@ -956,6 +967,9 @@ for kid in kids:
 # ============================================================================ #
 #     multi map
 
+            # TODO noise weighted mean
+            # np.sum(ra_peaks*wts)/np.sum(wts)
+
             # add to combined maps, or create if needed  
             zz_multi[tod_type] = ternNansum(zz_multi[tod_type], zz) 
 
@@ -1009,11 +1023,12 @@ for kid in kids:
     if df_success:
         kid_cnt += 1
         print(".", end="", flush=True)
+        if kid_cnt % 100 == 0 and kid_cnt > 0:
+            print(kid_cnt, end="", flush=True)
     else:
         print("o", end="", flush=True)
 
-    if kid_cnt % 100 == 0 and kid_cnt > 0:
-        print(kid_cnt, end="", flush=True)
+
 
     gc.collect()
     
@@ -1024,7 +1039,7 @@ for kid in kids:
 # ============================================================================ #
 
 print(" Done.")
-print(f"Total number of KIDs contributing to maps = {kid_cnts}")
+print(f"Total number of KIDs contributing to maps = {kid_cnts}/{loop_cnt}")
 print("Saving final maps... ", end="")
 
 for tod_type in maps_to_build:
