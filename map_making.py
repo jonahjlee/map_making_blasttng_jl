@@ -679,24 +679,6 @@ def nansum(arr, axis=0):
     return sum_arr
 
 
-# ============================================================================ #
-# ternNansum
-def ternNansum(var, val):
-    '''Ternary nansum allowing for var to be None (first loop).
-    '''
-    
-    return val if var is None else nansum([var, val], axis=0)  
-
-
-# ============================================================================ #
-# ternSum
-def ternSum(var, val):
-    '''Ternary np.sum allowing for var to be None (first loop).
-    '''
-    
-    return val if var is None else np.sum([var, val], axis=0)
-
-
 
 # ============================================================================ #
 # PRE
@@ -804,9 +786,10 @@ outs = {}
 
 zz_kid_cnt = {}
 zz_multi = {}
-for tod_type in maps_to_build:
-    zz_kid_cnt[tod_type] = None
-    zz_multi[tod_type] = None
+zz_wts_sum = {}
+# for tod_type in maps_to_build:
+#     zz_kid_cnt[tod_type] = None
+#     zz_multi[tod_type] = None
 
 loop_cnt = 0
 for kid in kids:
@@ -950,7 +933,7 @@ for kid in kids:
                         ra_bins, dec_bins)
 
             # pixel shift tracking
-            shifts.append((kid, *shift_pix))
+            shifts.append((kid, *shift_pix)) # [[kid, ra_shift, dec_shift],[...]]
 
             log.info(f"shift_pix={shift_pix}")
 
@@ -967,30 +950,57 @@ for kid in kids:
 # ============================================================================ #
 #     multi map
 
-            # TODO noise weighted mean
-            # np.sum(ra_peaks*wts)/np.sum(wts)
+            # # add to combined maps, or create if needed  
+            # zz_multi[tod_type] = ternNansum(zz_multi[tod_type], zz)
 
-            # add to combined maps, or create if needed  
-            zz_multi[tod_type] = ternNansum(zz_multi[tod_type], zz) 
+            # # track how many kids had values for each pixel, for mean
+            # zz_kid_cnt[tod_type] = ternSum(zz_kid_cnt[tod_type], ~np.isnan(zz)) 
 
-            # track how many kids had values for each pixel, for mean
-            zz_kid_cnt[tod_type] = ternSum(zz_kid_cnt[tod_type], ~np.isnan(zz)) 
-        
-            del(zz)
+            # if kid == kid_ref:
+            #     zz_multi[tod_type]   = zz
+            #     zz_kid_cnt[tod_type] = ~np.isnan(zz)
+            # else:
+            #     zz_multi[tod_type]   = nansum([zz_multi[tod_type], zz], axis=0)
+            #     zz_kid_cnt[tod_type] = np.sum([zz_kid_cnt[tod_type], ~np.isnan(zz)], axis=0)
+
+            # # divide sum map by count to get mean map for output
+            # zz_out  = np.divide(
+            #     zz_multi[tod_type], zz_kid_cnt[tod_type], 
+            #     where=zz_kid_cnt[tod_type].astype(bool))
+
+            # create or add to out map (noise wtd mean)
+            wtdzz_map  = zz/tod_noise       # zz wtd by noise
+            val_bmap   = ~np.isnan(zz)      # non-nan vals bool map
+            sumwts_map = val_bmap/tod_noise # wts sum map
+
+            if kid == kid_ref: # first KID (ref): add maps to dicts
+                zz_multi[tod_type]   = wtdzz_map
+                zz_kid_cnt[tod_type] = val_bmap
+                zz_wts_sum[tod_type] = sumwts_map
             
-            # divide sum map by count to get mean map for output
+            else: # subsequent KIDs: sum maps
+                zz_multi[tod_type]   = nansum(
+                    [zz_multi[tod_type], wtdzz_map], axis=0)
+                zz_kid_cnt[tod_type] = np.sum(
+                    [zz_kid_cnt[tod_type], val_bmap], axis=0)
+                zz_wts_sum[tod_type] = np.sum(
+                    [zz_wts_sum[tod_type], sumwts_map], axis=0)
+            
+            # divide sum map by wts sum for wtd mean
             zz_out  = np.divide(
-                zz_multi[tod_type], zz_kid_cnt[tod_type], 
+                zz_multi[tod_type], zz_wts_sum[tod_type], 
                 where=zz_kid_cnt[tod_type].astype(bool))
         
             # hack to add nans back in
             # I can't figure out why this is needed
             # nans are lost in the divide
-            zz_out[zz_kid_cnt[tod_type]==0] = np.nan
+            # zz_out[zz_kid_cnt[tod_type]==0] = np.nan
 
             # generate output array
             out  = np.array([rr, dd, zz_out])
             outs[tod_type] = out
+
+            # del(zz)
 
 # ============================================================================ #
 #     output
