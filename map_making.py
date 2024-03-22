@@ -14,73 +14,54 @@ import re
 import gc
 import sys
 import time
+from datetime import datetime
+# from collections import namedtuple
+from typing import NamedTuple
 import logging
 import warnings
 import traceback
 import tracemalloc
 import numpy as np
 import numba as nb
-from datetime import datetime
+import astropy.units as u
+from astropy.time import Time
+from astropy.coordinates import SkyCoord, EarthLocation, AltAz
 from scipy.ndimage import shift
-from scipy.signal import butter
-from scipy.signal import filtfilt
-from scipy.signal import find_peaks
+from scipy.ndimage import affine_transform
+from scipy.signal import butter, filtfilt, find_peaks
+from scipy.optimize import fmin, minimize, differential_evolution
 
 
 
 # ============================================================================ #
-# CONFIG
+# -CONFIG-
 # ============================================================================ #
-
-log_file = "map_making.log"
 
 roach = 1
 
 maps_to_build = ['DF'] # options: ['A', 'P', 'DF']
 
-# first unused KID channel (2469 total used channels)
-kid_max = {1:380, 2:474, 3:667, 4:498, 5:450}[roach]
+# map pixel bin sizes to use (determines final resolution)
+# beam is 0.01 degrees or 36 arcsec
+platescale = 5.9075e-6 # deg/um = 21.267 arcsec/mm
+x_bin = 0.01/platescale # degrees -> um
+y_bin = 0.01/platescale # degrees -> um
 
 # KID to use as the reference for shift table calculations
 kid_ref = {1:'0100', 2:'', 3:'0003', 4:'', 5:''}[roach]
 
-# ra and dec TOD conversion factors
-conv_ra  = 5.5879354e-09
-conv_dec = 8.38190317e-08
+# source name for SkyCoord
+source_name = 'RCW 92'
 
 # data indices
-# this should be object RCW 92
+# scan of object RCW 92
 slice_i = {1:37125750, 2:0, 3:37141250, 4:0, 5:0}[roach] # RCW 92
 cal_i   = slice_i + 516_000 # cal lamp
 cal_f   = slice_i + 519_000
-# noise_i = slice_i + 140_000 # noise region
-# noise_f = slice_i + 200_000
 
-# tod lowpass filter parameters
-filt_cutoff_freq = 15
-filt_order       = 3
-
-# TOD peak properties for find_peaks
-peak_s = 3   # prominence [multiple of noise]
-peak_w = 100 # width [indices] 
-
-# Noise highpass parameters
-noise_cutoff_freq = 10 # Hz
-noise_order       = 3
-
-# exclusion tolerances (based on DF tod)
-tol_std = 0.1
-tol_med = 0.01
-
-# map pixel bin sizes to use (determines final resolution)
-ra_bin  = 0.01 # degrees; note RA TOD is converted from hours
-dec_bin = 0.01 # degrees
-# beam is 0.01 degrees or 36 arcsec
-# older maps were 0.015 degrees
-
-# declare directories
+# data directories and files
 dir_root   = '/media/player1/blast2020fc1/fc1/'
-dir_conv   = dir_root + 'converted/' # converted npy's
+dir_conv   = dir_root + 'converted/' # converted to npy's
 dir_master = dir_conv + 'master_2020-01-06-06-21-22/'
 if roach == 1:
     dir_roach   = dir_conv + f'roach1_2020-01-06-06-22-01/'
@@ -98,14 +79,40 @@ elif roach == 5:
     dir_roach   = dir_conv + f'roach5_2020-01-06-06-22-01/'
     dir_targ    = dir_root + f'roach_flight/roach5/targ/Tue_Jan__7_00_55_51_2020/'
 
-# map shifts file
-dir_shifts = dir_conv + 'shifts/'
-file_shifts = dir_shifts + f'shifts_roach{roach}.npy'
+# detector layout file
+file_layout = dir_root + f'map_making/detector_layouts/layout_roach{roach}.csv'
+
+# KID rejects list
+file_rejects = dir_root + f'map_making/kid_rejects/kid_rejects_roach{roach}.npy'
+
+# log file
+log_file = 'map_making.log'
+
+# single KID maps output directory
+dir_single = 'single_maps/'
+
+# map aligning parameters output dir and file
+dir_xform = 'align/'
+file_xform = dir_xform + f'align_roach{roach}.npy'
+file_source_coords = dir_xform + f'source_coords_roach{roach}.npy'
+
+# first unused KID channel (2469 total used channels)
+kid_max = {1:380, 2:474, 3:667, 4:498, 5:450}[roach]
+
+# TOD peak properties for find_peaks for source search
+peak_s = 3   # prominence [multiple of noise]
+peak_w = 100 # width [indices] 
+
+# Noise finding highpass parameters
+noise_cutoff_freq = 10 # Hz
+noise_order       = 3
 
 
 
 # ============================================================================ #
-# FUNCTIONS
+# ------------
+# ============================================================================ #
+# -SETUP FUNCS-
 # ============================================================================ #
 
 
@@ -132,13 +139,13 @@ def genTimestamp():
     ISO 8601 compatible format.
     '''
 
-    return datetime.utcnow().strftime("%Y%m%dT%H%M%SZ")
+    return datetime.utcnow().strftime("%Y-%m-%d-T%H_%M_%SZ")
 
 
 # ============================================================================ #
 # genLog
 def genLog(log_file, log_dir):
-    '''Generate a logging log.
+    '''Generate a log.
     '''
     
     level = logging.INFO
@@ -152,69 +159,59 @@ def genLog(log_file, log_dir):
     file_handler.setFormatter(formatter)
     log.addHandler(file_handler)
     
-    # # stream handler prints to console
-    # stream_handler = logging.StreamHandler()
-    # stream_handler.setLevel(level)
-    # stream_handler.setFormatter(formatter)
-    # log.addHandler(stream_handler)
-    
     return log
 
 
 # ============================================================================ #
 # genDirsForRun
-def genDirsForRun(suffix):
+def genDirsForRun(suffix, dirs):
     '''Generate needed directories for this run.
     
     suffix: Added to end of base directory created.
     '''
     
     # base directory
-    dir_out = os.path.join(os.getcwd(), f"map_{timestamp}")
+    dir_out = os.path.join(os.getcwd(), f"map_{suffix}")
     os.makedirs(dir_out)
     
-    # products directory
-    dir_prods = os.path.join(dir_out, "prods")
-    os.makedirs(dir_prods)
-    
-    return dir_out, dir_prods
+    for d in dirs:
+        os.makedirs(os.path.join(dir_out, d), exist_ok=True)
+
+    return dir_out
+
+
+
+# ============================================================================ #
+# -COM FUNCS-
+# ============================================================================ #
 
 
 # ============================================================================ #
 # loadCommonData
-def loadCommonData(roach, dir_master, dir_roach, conv_ra, conv_dec):
+def loadCommonData(roach, dir_master, dir_roach):
     '''Loads all the common data into memory.
     '''
-     
-    # load in data
-    master_ra        = np.load(dir_master + 'ra.npy')
-    master_dec       = np.load(dir_master + 'dec.npy')
-    master_time      = np.load(dir_master + 'time.npy')
-    master_time_usec = np.load(dir_master + 'time_usec.npy')
-    roach_time       = np.load(dir_roach + f'ctime_built_roach{roach}.npy')
-
-    # create a combined time field
-    master_time = master_time.astype('float64')
-    master_time += master_time_usec*1e-6
-    del(master_time_usec)
-    # note that 100 indices is 1 sec in these master files
     
-    # adjust ra and dec as per format file
-    master_ra  = master_ra.astype('float64')
-    master_dec = master_dec.astype('float64')
-    master_ra  *= conv_ra
-    master_dec *= conv_dec
-
-    # adjust ra from hours to degrees
-    master_ra *= 15
-    
-    # data to return
+    # load master fields
+    # master_fields = ['time', 'time_usec', 'ra', 'dec', 'el', 'az', 'alt', 'lon', 'lat']
+    master_fields = ['time', 'time_usec', 'el', 'az', 'alt', 'lon', 'lat']
     dat_raw = {
-        'master_time': master_time,
-        "ra"         : master_ra,
-        "dec"        : master_dec,
-        'roach_time' : roach_time,
-    }
+        field: np.load(dir_master + field + '.npy')
+        for field in master_fields}
+    
+    # load common roach fields
+    dat_raw['roach_time'] = np.load(dir_roach + f'ctime_built_roach{roach}.npy', mmap_mode='r')
+
+    # combine time_usec into time
+    dat_raw['time'] = dat_raw['time'].astype('float64') + dat_raw['time_usec']*1e-6
+    del(dat_raw['time_usec'])
+    
+    # coord conversions (as per format file)
+    # for field in ['ra', 'dec', 'el', 'az']:
+    for field in ['el', 'az']:
+        dat_raw[field]  = dat_raw[field].astype('float64')*8.38190317e-08
+    for field in ['lon', 'lat']:
+        dat_raw[field]  = dat_raw[field].astype('float64')*1.676380634e-07
     
     return dat_raw
 
@@ -222,7 +219,7 @@ def loadCommonData(roach, dir_master, dir_roach, conv_ra, conv_dec):
 # ============================================================================ #
 # loadTargSweep
 def loadTargSweepsData(dir_targ):
-    '''Targ sweep for chan.
+    '''Loads and combines the target sweep files.
     
     dir_targ: (str or path) The absolute filename str or path.
     '''
@@ -241,37 +238,65 @@ def loadTargSweepsData(dir_targ):
 
 
 # ============================================================================ #
-# getTargSweepIQ
-def getTargSweepIQ(kid, dat_targs):
-    '''Filter roach targs for target sweep for this kid.
-    
-    kid: (int) The KID number.
-    dat_targs: (2D array; floats) Array of all target sweeps for this roach.
+# xformModel
+def xformModelHeader():
+    return 'M, N, θ, xo, yo' 
+def xformModel(M, N, θ, xo, yo, a, b):
+    '''The transformation model 
+    to apply to the detector layouts for map alignment.
+
+    M: (float) Model parameter: Scale x.
+    N: (float) Model parameter: Scale y.
+    θ: (float) Model parameter: rotation [rads].
+    xo, yo: (floats) Model parameter: translation.
+    a, b: (1D array of floats) The points to transform (x and y arrays).
+
+    Note that xo, yo, a, b are all in coord units.
     '''
     
-    I = dat_targs[::2, int(kid)]
-    Q = dat_targs[1::2, int(kid)]
-    
-    return I, Q
+    # rotate
+    X = (a*np.cos(θ) - b*np.sin(θ))
+    Y = (a*np.sin(θ) + b*np.cos(θ))
+
+    # scale
+    X *= M
+    Y *= N
+
+    # shift
+    X -= xo
+    Y -= yo
+
+    # X = (M*a*np.cos(θ) - b*np.sin(θ)) - xo
+    # Y = (a*np.sin(θ) + N*b*np.cos(θ)) - yo
+
+    return X, Y
 
 
 # ============================================================================ #
-# loadShiftsData
-def loadShiftsData(file_shifts):
-    '''Load the pre-determined resonator positional shift data.
+# loadXformData
+def loadXformData(file_xform):
+    '''Load the pre-determined map transform data (to align maps).
 
-    file_shifts: (str) The absolute filename of the shift information file.
+    file_xform: (str) The absolute filename of the transform information file.
     '''
 
-    dat_shifts = np.load(file_shifts, allow_pickle=True) # kid: (shift_x, shift_y)
-     
-    # convert to dictionary
-    dat_shifts = {
-        int(dat_shifts[i][0]): (float(dat_shifts[i][1]), float(dat_shifts[i][2]))
-        for i in range(len(dat_shifts))
-    }
+    # load data from file
+    xform_params = np.loadtxt(file_xform, skiprows=1, delimiter=',')
 
-    return dat_shifts
+    return xform_params
+
+
+# ============================================================================ #
+# saveXformData
+def saveXformData(file_xform, xform_params):
+    '''Save calculated map transform data (for aligning maps).
+
+    file_xform: (str) The absolute filename of the transform information file.
+    xform_params: (tuple of floats) The transformation parameters.
+    '''
+
+    np.savetxt(file_xform, xform_params, delimiter=',', 
+               header=xformModelHeader())
 
 
 # ============================================================================ #
@@ -300,9 +325,110 @@ def findAllKIDs(directory):
 
 
 # ============================================================================ #
+# KIDsToUse
+def KIDsToUse(file_layout):
+    '''Load the kids to use from the detector layout file.
+    Note that the KID numbers are strings with leading zero, e.g. '0100'.
+
+    file_layout: (str) Absolute file name of detector layout file.
+    '''
+
+    # Load layout file CSV
+    data = np.loadtxt(file_layout, skiprows=1, delimiter=',')
+
+    # kids (chans) field
+    kid_vals = data[:,0].astype(int)
+
+    # sort ascending
+    kid_vals_sorted = sorted(kid_vals)
+
+    # convert to 4 digit strings
+    kids = [f"{kid:04}" for kid in kid_vals_sorted]
+    
+    return kids
+
+
+# ============================================================================ #
+# loadKidRejects
+def loadKidRejects(file_rejects):
+    '''
+    '''
+
+    # load rejects file
+    dat = np.load(file_rejects)
+
+    return dat
+
+
+# ============================================================================ #
+# abFromLayout
+def abFromLayout(file_layout):
+    '''Get the a,b coords from the detector layout file.
+
+    file_layout: (str) Absolute file name of detector layout file.
+    '''
+
+    # Load layout file CSV
+    data = np.loadtxt(file_layout, skiprows=1, delimiter=',')
+
+    # prep the fields
+    kids = [f"{kid:04}" for kid in sorted(data[:,0].astype(int))]
+    a = data[:,1].astype(float)
+    b = data[:,2].astype(float)
+
+    # convert to dict:
+    ab = {kid: (a[i],b[i]) for i,kid in enumerate(kids)}
+
+    return ab
+
+
+# ============================================================================ #
+# alignMasterAndRoachTods
+def alignMasterAndRoachTods(dat_raw):
+    '''Interpolate master arrays and align roach.
+    '''
+    
+    # master_fields = ['time', 'ra', 'dec', 'el', 'az', 'alt', 'lon', 'lat']
+    master_fields = ['time', 'el', 'az', 'alt', 'lon', 'lat']
+    roach_time = dat_raw['roach_time']
+    
+    # interpolate master fields to roach_time length
+    def interp(a, a_match):
+        x_old = np.arange(len(a))
+        x_new = np.linspace(0, len(a)-1, len(a_match))
+        a_interp = np.interp(x_new, x_old, a)
+        return a_interp
+
+    dat_aligned = {}
+    for field in master_fields:
+        dat_aligned[field] = interp(dat_raw[field], roach_time)
+        del(dat_raw[field])
+        gc.collect()
+
+    # dat_aligned = {
+    #     field: interp(dat_raw[field], roach_time)
+    #     for field in master_fields}
+    
+    # indices to align roach tods to master tods
+    indices = np.searchsorted(roach_time, dat_aligned['time'], side='left')
+    indices[indices == len(roach_time)] = len(roach_time) - 1 # max index bug fix
+    
+    # use aligned roach time as main time tod
+    dat_aligned['time'] = roach_time[indices]
+        
+    return dat_aligned, indices
+
+
+
+# ============================================================================ #
+# -KID FUNCS-
+# ============================================================================ #
+
+
+# ============================================================================ #
 # loadKIDData
 def loadKIDData(roach, kid):
-    '''Loads KID specific data into memory.
+    '''Preps KID I and Q for on-demand loading.
     '''
 
     I = np.load(dir_roach + f'i_kid{kid}_roach{roach}.npy', 
@@ -314,47 +440,18 @@ def loadKIDData(roach, kid):
 
 
 # ============================================================================ #
-# alignMasterToRoachTOD
-@nb.njit
-def _alignMasterToRoachTOD(master_time, roach_time, ra, dec):
-    '''Interpolate master arrays and align to roach time.
+# getTargSweepIQ
+def getTargSweepIQ(kid, dat_targs):
+    '''Filter roach targs for target sweep for this kid.
+    
+    kid: (int) The KID number.
+    dat_targs: (2D array; floats) Array of all target sweeps for this roach.
     '''
     
-    # interpolate master TOD
-    x = np.arange(len(master_time))
-    new_x = np.linspace(x[0], x[-1], len(roach_time))
-    master_time_a = np.interp(new_x, x, master_time)
-    ra_a   = np.interp(new_x, x, ra)
-    dec_a  = np.interp(new_x, x, dec)
+    I = dat_targs[::2, int(kid)]
+    Q = dat_targs[1::2, int(kid)]
     
-    # assumes both arrays are sorted ascending...
-    indices = np.searchsorted(roach_time, master_time_a, side='left')
-    
-    # fixed max index bug from np.searchsorted
-    indices[indices == len(roach_time)] = len(roach_time) - 1 
-    
-    roach_time_aligned = roach_time[indices]
-     
-    return indices, master_time_a, ra_a, dec_a, roach_time_aligned
-
-def alignMasterToRoachTOD(master_time, roach_time, ra, dec):
-    ret = _alignMasterToRoachTOD(master_time, roach_time, ra, dec)
-
-    indices, master_time_a, ra_a, dec_a, roach_time_aligned = ret
-
-    return indices, ra_a, dec_a, roach_time_aligned
-   
-# ============================================================================ #
-# alignIQ
-@nb.njit
-def alignIQ(I, Q, indices):
-    '''Align I and Q to master.
-    '''
-    
-    I_align = I[indices]
-    Q_align = Q[indices]
-    
-    return I_align, Q_align
+    return I, Q
 
 
 # ============================================================================ #
@@ -415,6 +512,12 @@ def genTOD(tod_type, I, Q, If, Qf):
         case 'DF': return createΔfx_grad(I, Q, If, Qf)
         
         case _: raise Exception(f'Error: Invalid tod_type ({tod_type})')
+
+
+
+# ============================================================================ #
+# -ANALYSIS FUNCS-
+# ============================================================================ #
 
 
 # ============================================================================ #
@@ -530,10 +633,10 @@ def weightedMedian(data, weights):
 
 # ============================================================================ #
 # sourceCoords
-def sourceCoords(ra, dec, tod, noise, s, w, t=0.5):
-    '''Determine source RA and DEC coordinates.
+def sourceCoords(x, y, tod, noise, s, w, t=0.5):
+    '''Determine source coordinates in x,y.
 
-    ra, dec: (1D array; floats) Time ordered data of RA/DEC.
+    x, y: (1D array; floats) Time ordered data coords, e.g. az/el.
     tod: (1D array; floats) Time ordered data to find source in, e.g. DF.
     noise: (float) Noise in tod.
     s: (float) Prominence of peak in multiples of noise.
@@ -541,80 +644,210 @@ def sourceCoords(ra, dec, tod, noise, s, w, t=0.5):
     t: (float) Threshold to filter peaks [tod units]
     '''
 
+    # find peaks in tod of source passing over KID
     i_peaks, peak_info = detectPeaks(tod, noise, s, w)
+
+    # use peak prominences as weights for weighted mean
+    wts = peak_info['prominences']
     
+    # no peaks!
     if len(i_peaks) < 1:
+        log.warning("No peaks to determine source coords.")
         return None
+    
+    # func to determine source coords
+    def xy(xf, yf, wts):
+        x_source = weightedMedian(xf, weights=wts)
+        y_source = weightedMedian(yf, weights=wts)
+        return x_source, y_source
 
-    # weighted mean of all peaks
-    # wts = peak_info['prominences']
-    # ra_peaks  = ra[i_peaks]
-    # dec_peaks = dec[i_peaks]
-    # ra_source  = np.sum(ra_peaks*wts)/np.sum(wts)
-    # dec_source = np.sum(dec_peaks*wts)/np.sum(wts)
+    # use only peaks above threshold (0<t<1)
+    f = tod[i_peaks] >= t
+    if len(f) > 0:
+        return xy(x[i_peaks][f], y[i_peaks][f], wts[f])
+    
+    # use ALL peaks instead
+    log.info("No peaks above threshold. Trying all peaks to find source coords.")
+    return xy(x[i_peaks], y[i_peaks], wts)
 
-    # only most prominent peaks; assumes normalized 0-1
-    i_peaks_f = tod[i_peaks] >= t # threshold
 
-    # weighted median of most prominent peaks
-    wts = tod[i_peaks][i_peaks_f]
-    ra_source = weightedMedian(ra[i_peaks][i_peaks_f], weights=wts)
-    dec_source = weightedMedian(dec[i_peaks][i_peaks_f], weights=wts)
+# ============================================================================ #
+# solveForMapXform
+def solveForMapXform(a, b, x, y):
+    
+    def chi_sq(params, a, b, x, y):
+        '''χ^2 to minimize for detector position model fit.
+        
+        params: (tuple of floats) Model parameters. 
+        a, b: (1D arrays) Locations in layout map [um].
+        x, y: (1D arrays) Locations in offset map [um].
+        '''
 
-    return ra_source, dec_source
+        X, Y = xformModel(*params, a, b)
+
+        return np.sum((x - X)**2 + (y - Y)**2)
+    
+    # # fmin
+    # init_guess = (1, 1, 0, 0, 0) # (M, N, θ, xo, yo)
+    # params = fmin(chi_sq, init_guess, args=(a, b, x, y))
+    # return params 
+
+    # # differential_evolution
+    # bounds = [(0, 100), (0, 100), (-np.pi, np.pi), (-50000, 50000), (-50000, 50000)]
+    # result = differential_evolution(chi_sq, bounds=bounds, args=(a, b, x, y))
+    # return result.x
+
+    # scipy.optimize.minimize
+    init_guess = (1, 1, 0, 0, 0) # (M, N, θ, xo, yo)
+    bounds = [(0.9, 1.1), (0.9, 1.1), (-np.pi, np.pi), (-50000, 50000), (-50000, 50000)]
+    result = minimize(chi_sq, x0=init_guess, args=(a, b, x, y), bounds=bounds)
+    return result.x
 
 
 # ============================================================================ #
 # findPixShift
-def findPixShift(p, ref, ra_bins, dec_bins):
-    '''Find the bin shift to move point to reference.
+# def findPixShift(p, ref, ra_bins, dec_bins):
+    # '''Find the bin shift to move point to reference.
 
-    p: (2tuple; floats) Point (RA, DEC).
-    ref: (2tuple; floats) Reference point (RA, DEC).
-    ra_bins: (1D array; floats) RA map bins.
-    dec_bins: (1D array; floats) DEC map bins.
+    # p: (2tuple; floats) Point (RA, DEC).
+    # ref: (2tuple; floats) Reference point (RA, DEC).
+    # ra_bins: (1D array; floats) RA map bins.
+    # dec_bins: (1D array; floats) DEC map bins.
+    # '''
+
+    # def findBin(v, bins):
+    #     return np.argmin(np.abs(v - bins))
+
+    # bin_ref = (findBin(ref[0], ra_bins), findBin(ref[1], dec_bins))
+    # bin_p   = (findBin(p[0], ra_bins), findBin(p[1], dec_bins))
+
+    # return np.array(bin_ref) - np.array(bin_p)
+
+
+
+# ============================================================================ #
+# -MAP FUNCS-
+# ============================================================================ #
+
+
+# ============================================================================ #
+# sourceCoordsAzEl
+def sourceCoordsAzEl(source_name, lat, lon, alt, time):
+    '''Tod of az/el coordinates of the source (telescope frame).
+
+    source_name: (str) The source name for SkyCoord.
+    lat, lon, alt, time: (1D arrays) Tods to define telescope location.
     '''
 
-    def findBin(v, bins):
-        return np.argmin(np.abs(v - bins))
+    # Define the coordinates of the source
+    source = SkyCoord.from_name(source_name)
+
+    # Define the location of the telescope (tod)
+    telescope_location = EarthLocation(
+        lat=lat*u.deg, lon=lon*u.deg, height=alt*u.m)
+
+    # Create an astropy Time object of Unix time array
+    time = np.nan_to_num(time) # deals with any nan or inf
+    time_array = Time(time, format='unix_tai') # timestamp w/ us
+
+    # Altitude-Azimuth frame tod
+    altaz_frame = AltAz(obstime=time_array, location=telescope_location)
+
+    # Calculate the coordinates of source in el/az frame (tod)
+    source_altaz = source.transform_to(altaz_frame)
+
+    # Extract azimuth and elevation from the resulting AltAz object
+    az = source_altaz.az.to(u.deg).value
+    el = source_altaz.alt.to(u.deg).value
     
-    bin_ref = (findBin(ref[0], ra_bins), findBin(ref[1], dec_bins))
-    bin_p   = (findBin(p[0], ra_bins), findBin(p[1], dec_bins))
+    # return as NamedTuple
+    class SourceAzEl(NamedTuple): 
+        az: np.ndarray
+        el: np.ndarray
+    return SourceAzEl(az, el)
+
+
+# ============================================================================ #
+# azElOffsets
+def azElOffsets(source_azel, az, el):
+    '''Generate az/el offset tods from az/el pointing and source coords.
+
+    source_azel: (SourceAzEl) Source az/el tods.
+    az, el: (1D array) Pointing az/el tods.
+    '''
     
-    return np.array(bin_ref) - np.array(bin_p)
+    # generate offsets
+    offset_az = source_azel.az - az
+    offset_el = source_azel.el - el
+    
+    # determine correction to pointing
+    # since boresight differs from pointing data
+    cor_az = np.mean(offset_az)
+    cor_el = np.mean(offset_el)
+    offset_az -= cor_az
+    offset_el -= cor_el
+          
+    log.info(f"Boresight correction: az={cor_az}, el={cor_el}")
+    
+    return offset_az, offset_el
+
+
+# ============================================================================ #
+# offsetsTanProj
+def offsetsTanProj(x, y, platescale):
+    '''Convert offsets in degrees to image plane in um.
+
+    x, y: (1D array of floats) The offsets arrays in degrees.
+    platescale: (float) Platescale in deg/um.
+    '''
+    
+    from astropy.wcs import WCS
+    
+    w = WCS(naxis=2)
+    w.wcs.crpix = [0, 0]   # center of the focal plane is tangent point
+    w.wcs.crval = [0., 0.] # source is at center in offsets map
+    w.wcs.ctype = ["RA---TAN", "DEC--TAN"]
+    w.wcs.cdelt = [platescale, platescale]
+    
+    xp, yp = w.wcs_world2pix(x, y, 0)
+
+    return xp, yp
 
 
 # ============================================================================ #
 # genMapAxesAndBins
-def genMapAxesAndBins(ra, dec, ra_bin, dec_bin):
-    '''Generate the 1D bin arrays and 2D map arrays.
+def genMapAxesAndBins(x, y, x_bin, y_bin):
+    '''Generate the 1D bin/edge arrays and 2D map arrays.
 
-    ra/dec: (1D array; floats) RA/DEC time ordered data [degrees].
-    ra_bin/dec_bin: (float) RA/DEC bin size [degrees].
+    x, y: (1D array; floats) x,y tods, e.g. az/el.
+    x_bin, y_bin: (float) x/y bin size for map.
     '''
 
-    ra_bins  = np.arange(np.min(ra), np.max(ra), ra_bin)
-    dec_bins = np.arange(np.min(dec), np.max(dec), dec_bin)
+    # generate map bin arrays
+    x_bins = np.arange(np.min(x), np.max(x), x_bin)
+    y_bins = np.arange(np.min(y), np.max(y), y_bin)
 
-    ra_edges  = np.arange(np.min(ra), np.max(ra) + ra_bin, ra_bin)
-    dec_edges = np.arange(np.min(dec), np.max(dec) + dec_bin, dec_bin)
+    # generate map bin edge arrays
+    x_edges = np.arange(np.min(x), np.max(x) + x_bin, x_bin)
+    y_edges = np.arange(np.min(y), np.max(y) + y_bin, y_bin)
 
-    rr, dd = np.meshgrid(ra_bins, dec_bins)
+    # generate meshgrid 2D map bin arrays
+    xx, yy = np.meshgrid(x_bins, y_bins)
 
-    return rr, dd, ra_bins, dec_bins, ra_edges, dec_edges
+    return xx, yy, x_bins, y_bins, x_edges, y_edges
 
 
 # ============================================================================ #
 # buildSingleKIDMap
-def buildSingleKIDMap(tod, ra, dec, ra_edges, dec_edges):
+def buildSingleKIDMap(tod, x, y, x_edges, y_edges):
     '''Build a 2D map from time ordered data for a single KID.
 
-    ra, dec: (1D arrays; floats) The time ordered ra/dec data.
+    x, y: (1D arrays; floats) The time ordered positional data, e.g. az/el.
     TOD: (1D arrays; floats) TOD values, e.g. A, P, DF.
     '''
 
-    zz0, _, _ = np.histogram2d(ra, dec, bins=[ra_edges, dec_edges])
-    zz, _, _ = np.histogram2d(ra, dec, bins=[ra_edges, dec_edges], weights=tod)
+    zz0, _, _ = np.histogram2d(x, y, bins=[x_edges, y_edges])
+    zz, _, _ = np.histogram2d(x, y, bins=[x_edges, y_edges], weights=tod)
     
     with warnings.catch_warnings():
         warnings.simplefilter("ignore", category=RuntimeWarning)
@@ -624,41 +857,6 @@ def buildSingleKIDMap(tod, ra, dec, ra_edges, dec_edges):
     zz[zz == 0] = np.nan
 
     return zz.T
-
-
-# ============================================================================ #
-# normImage
-@nb.njit
-def normImage(image):
-    '''Normalize to 0-1.
-    '''
-    
-    min_val = np.nanmin(image)
-    max_val = np.nanmax(image)
-
-    norm_image = (image - min_val) / (max_val - min_val)
-    
-    return norm_image
-
-
-# ============================================================================ #
-# invertImageIfNeeded
-@nb.njit
-def invertImageIfNeeded(image):
-    '''Invert pixel values. Assumes already normalized.
-    '''
-    
-    min_val = np.nanmin(image)
-    med_val = np.nanmedian(image)
-    max_val = np.nanmax(image)
-    
-    # if most prominent feature is negative, invert
-    invert = True if (max_val - med_val) < (med_val - min_val) else False
-    
-    if invert:
-        image = -1*image + 1
-        
-    return image
 
 
 # ============================================================================ #
@@ -681,119 +879,144 @@ def nansum(arr, axis=0):
 
 
 # ============================================================================ #
-# PRE
+# ------------
+# ============================================================================ #
+# -PRE-LOOP-
 # ============================================================================ #
 
 tracemalloc.start()
 
-timer              = Timer()
-timestamp          = genTimestamp()
-dir_out, dir_prods = genDirsForRun(timestamp)
-log                = genLog(log_file, dir_out)
+timer      = Timer()
+timestamp  = genTimestamp()
+dir_out    = genDirsForRun(timestamp, [dir_xform, dir_single])
+log        = genLog(log_file, dir_out)
 
-log.info(f"log_file   = {log_file}")
-log.info(f"roach      = {roach}")
-log.info(f"kid_ref    = {kid_ref}")
+log.info(f"{roach = }")
 log.info(f"{maps_to_build = }")
-log.info(f"conv_ra    = {conv_ra}")
-log.info(f"conv_dec   = {conv_dec}")
-log.info(f"slice_i    = {slice_i}")
-log.info(f"cal_i      = {cal_i}")
-log.info(f"cal_f      = {cal_f}")
-log.info(f"{filt_cutoff_freq = }")
-log.info(f"{filt_order = }")
+log.info(f"{x_bin = }")
+log.info(f"{y_bin = }")
+log.info(f"{kid_ref = }")
+log.info(f"{source_name = }")
+log.info(f"{slice_i = }")
+log.info(f"{cal_i = }")
+log.info(f"{cal_f = }")
+log.info(f"{dir_root = }")
+log.info(f"{dir_master = }")
+log.info(f"{dir_roach = }")
+log.info(f"{dir_targ = }")
+log.info(f"{dir_out = }")
+log.info(f"{file_layout = }")
+log.info(f"{log_file = }")
+log.info(f"{dir_single = }")
+log.info(f"{file_xform = }")
+log.info(f"{file_source_coords = }")
+log.info(f"{kid_max = }")
+log.info(f"{peak_s = }")
+log.info(f"{peak_w = }")
 log.info(f"{noise_cutoff_freq = }")
 log.info(f"{noise_order = }")
-log.info(f"{tol_std = }")
-log.info(f"{tol_med = }")
-log.info(f"ra_bin     = {ra_bin}")
-log.info(f"dec_bin    = {dec_bin}")
-log.info(f"peak_s     = {peak_s}")
-log.info(f"peak_w     = {peak_w}")
-log.info(f"dir_out    = {dir_out}")
-log.info(f"dir_root   = {dir_root}")
-log.info(f"dir_master = {dir_master}")
-log.info(f"dir_roach  = {dir_roach}")
-log.info(f"dir_targ   = {dir_targ}")
-log.info(f"file_shifts = {file_shifts}")
 
 print(f"Creating maps: {maps_to_build} in roach {roach}.")
 print(f"See log file for more info.")
 print(f"Output is in: {dir_out}")
 
-print("Performing pre-KID processing... ", end="", flush=True)
+print("Performing pre-KID processing: ", flush=True)
+
+prntPad = "   "
+
+print(prntPad + "Loading common data... ", end="", flush=True)
 
 # load the common data
-dat_raw = loadCommonData(roach, dir_master, dir_roach, conv_ra, conv_dec)
+dat_raw = loadCommonData(roach, dir_master, dir_roach)
 dat_targs = loadTargSweepsData(dir_targ)
 
+print("Done.", flush=True)
+print(prntPad + "Aligning timestreams... ", end="", flush=True)
+
+# NOTE: We could load using memmap and slice before processing
+# This would reduce memory overhead and speed up the process
+# But need to look at align process carefully
+
 # align the master and roach data
-dat_align_indices, ra_a, dec_a, roach_time_aligned = alignMasterToRoachTOD(
-    dat_raw['master_time'], dat_raw['roach_time'], dat_raw['ra'], dat_raw['dec'])
+dat_aligned, dat_align_indices = alignMasterAndRoachTods(dat_raw)
+
+print("Done.", flush=True)
 
 # slice the common data for this map
 # note that cal lamp is removed in these slices
-# so master tods will be out of sync with A, P, and DF for a while
-TIME = roach_time_aligned[slice_i:cal_i].copy()
-RA   = ra_a[slice_i:cal_i].copy()
-DEC  = dec_a[slice_i:cal_i].copy()
+# so master tods will be out of sync with roach tods for a while
+dat_sliced = {
+    field: dat_aligned[field][slice_i:cal_i].copy() 
+    for field in dat_aligned}
 
-# free memory and force collection
-del(dat_raw, ra_a, dec_a, roach_time_aligned)
-gc.collect() 
+# free memory and force collection (these tods are large)
+del(dat_raw, dat_aligned)
+gc.collect()
+
+print(prntPad + "Determining source coordinates in az/el... ", end="", flush=True)
+
+# source coordinates in az/el telescope frame
+source_azel = sourceCoordsAzEl( # source_azel.az, source_azel.el
+    source_name, 
+    dat_sliced['lat'], dat_sliced['lon'], 
+    dat_sliced['alt'], dat_sliced['time'])
+
+print("Done.", flush=True)
+print(prntPad + "Generating az/el offset coordinates... ", end="", flush=True)
+
+# generate x and y, the az/el offset tods
+x, y = azElOffsets(source_azel, dat_sliced['az'], dat_sliced['el'])
+
+print("Done.", flush=True)
+print(prntPad + "Converting offsets to image plane... ", end="", flush=True)
+
+# convert offsets in degrees to um on image plane
+x, y = offsetsTanProj(x, y, platescale)
+
+print("Done.", flush=True)
+print(prntPad + "Generating map axes... ", end="", flush=True)
 
 # generate map bins and axes
-rr, dd, ra_bins, dec_bins, ra_edges, dec_edges = genMapAxesAndBins(
-    RA, DEC, ra_bin, dec_bin)
+xx, yy, x_bins, y_bins, x_edges, y_edges = genMapAxesAndBins(
+    x, y, x_bin, y_bin)
 
-print("Done.")
+print("Done.", flush=True)
 print("Determining KIDs to use... ", end="", flush=True)
 
-# pull in all the possible kids from the files in dir_roach
-kids = findAllKIDs(dir_roach) # sorted
+# kids to use
+# kids = findAllKIDs(dir_roach) # all in dir_roach; sorted
+kids = KIDsToUse(file_layout) # from detector layout file; sorted
 
-print(f"found {len(kids)}... Done.")
+print(f"found {len(kids)}.")
 log.info(f"Found {len(kids)} KIDs to use.")
 
 # move ref kid so it's processed first
 kids.remove(kid_ref)
 kids.insert(0, kid_ref)
 
-# load pre-determined shifts file
-try: dat_shifts = loadShiftsData(file_shifts)
-except: dat_shifts = None
+# load map transform data from file
+try: xform_params = loadXformData(file_xform)
+except: xform_params = None
 
-# track pixel shifts
-shifts = [] # (kid, ra, dec)
+# load KID rejects
+kid_rejects = loadKidRejects(file_rejects)
 
 
 
 # ============================================================================ #
-# KID LOOP
+# -KID LOOP-
 # ============================================================================ #
 
-# output intermediary products at predetermined number of kids
-# [1,2,4,8,16,32,50,100,200,300,...]
-outputAtKidCnt = np.concatenate(([1,2,4,8,16,32,50], np.arange(100, len(kids), 100)))
+print("Processing KIDs timestreams:", flush=True)
 
-print("KID progress: ", end="", flush=True)
+source_coords_all = {tod_type: {} for tod_type in maps_to_build}
+maps_all = {tod_type: {} for tod_type in maps_to_build}
 
-kid_cnts = {}
-kid_cnt = 0
-source_coords_ref = {}
-zz_ref = {}
-outs = {}
+kids_per_map = {} # kids used per map
+kid_cnt = 0       # total kids processed (kid loops)
 
-zz_kid_cnt = {}
-zz_multi = {}
-zz_wts_sum = {}
-# for tod_type in maps_to_build:
-#     zz_kid_cnt[tod_type] = None
-#     zz_multi[tod_type] = None
-
-loop_cnt = 0
 for kid in kids:
-    loop_cnt += 1
+    kid_cnt += 1
 
     log.info(f"KID = {kid} ---------------------")
 
@@ -802,48 +1025,30 @@ for kid in kids:
         log.info(f"Unused channels past here, skipping.")
         break
 
+    # do not proceed with KID channels in reject list
+    if kid in kid_rejects:
+        log.info(f"This KID is on the reject list, skipping.")
+        continue
+
     log.info(f"delta_t = {timer.deltat()}")
     log.info(f"kid count = {kid_cnt+1}")
-
     log.info(mem('')) # check mem usage per loop
 
-
+# ============================================================================ #
+#   load KID data
+        
     try:
 
-# ============================================================================ #
-#   target sweep
+        # load I and Q (memmap)
+        I, Q = loadKIDData(roach, kid)
 
+        # load target sweep
         targ = getTargSweepIQ(kid, dat_targs)
 
-# ============================================================================ #
-#   I and Q
+        # slice and align (include cal lamp in slice for now)
+        I_slice = I[dat_align_indices[slice_i:cal_f]] # slicing align indices
+        Q_slice = Q[dat_align_indices[slice_i:cal_f]]
 
-        # loadKIDData_pretime = timer.deltat()
-        # load KID data
-        I, Q = loadKIDData(roach, kid)
-        # ~3.5 s; ~0.9 s just for byteswaps
-            # can we just load the slice we need?
-            # would need to deal with alignIQ on just the slice
-        # log.info(f"loadKIDData time = {timer.deltat()-loadKIDData_pretime}")
-
-        # # stop if I and Q empty
-        # if np.median(np.abs(I + 1j*Q)) < 100:
-        #     log.info(f"No data in I and Q.")
-        #     continue
-        #     raise Exception(f"No data in I and Q.")
-        # # not necessary anymore since not loading unused KID channels
-
-        # # align the KID data
-        # I_align, Q_align = alignIQ(I, Q, dat_align_indices)
-
-        # # slice the KID data for this map
-        # # keep cal lamp in, so will be out of sync with master tods
-        # I_slice = I_align[slice_i:cal_f]
-        # Q_slice = Q_align[slice_i:cal_f]
-
-        I_slice, Q_slice = alignIQ(I, Q, dat_align_indices[slice_i:cal_f])
-        
-        # del(I, Q, I_align, Q_align) # done with these
         del(I, Q)
 
     # this kid is a writeoff, move to next
@@ -855,27 +1060,24 @@ for kid in kids:
 
 
 # ============================================================================ #
-#   MAP LOOP
+#   -MAP LOOP-
     
-    map_cnt = 0
-    df_success = False
+    df_success = False # df map processed status
+
     for tod_type in maps_to_build:
+
+        if kid_cnt-1 == 0: # instantiate all of these
+            kids_per_map[tod_type] = 0
+
         log.info(f"Processing map type {tod_type}")
-
-        # each map type has a separate kid count
-        if kid == kid_ref:
-            kid_cnts[tod_type] = 0
-
-        try:
 
 # ============================================================================ #
 #     tod
 
+        try:
+
             # build tod
             tod = genTOD(tod_type, I_slice, Q_slice, *targ)
-
-            # lowpass filter to remove some noise
-            tod = butterFilter(tod, TIME, 'low', filt_cutoff_freq, filt_order)
 
             # invert tod data if peaks are negative
             tod = invTodIfNegPeaks(tod, cal_i - slice_i, cal_f - slice_i)
@@ -889,175 +1091,177 @@ for kid in kids:
             tod = tod[:cal_i - slice_i]
 
             # determine tod noise in featureless region
-            tod_noise  = todNoise(tod, TIME, noise_cutoff_freq, noise_order)
-
-            # exclude KIDs with too much noise after normalization
-            if (np.std(tod) > tol_std) or (np.median(tod) > tol_med):
-                log.info(f"Over tolerance: {np.std(tod)=}, {np.median(tod)=}")
-                continue
-                # raise Exception(f"Bad {np.std(tod)=}, {np.median(tod)=}")
-
-# ============================================================================ #
-#     single map
-
-            # build the binned pixel maps
-            zz  = buildSingleKIDMap(tod, RA, DEC, ra_edges, dec_edges)
-
-            # use first kid we process as the reference for alignment etc.
-            if kid == kid_ref:
-                zz_ref[tod_type] = zz
-
-# ============================================================================ #
-#     shift
-
-            # load pixel shift info from file
-            if dat_shifts:
-                shift_pix = dat_shifts[int(kid)]
-
-            # or determine pixel shift information from tod
-            else:
-                source_coords = sourceCoords(
-                    RA, DEC, tod, tod_noise, peak_s, peak_w)
-                log.info(f"source_coords={source_coords}")
-                if source_coords is None:
-                    raise Exception(f"Could not determine source coords.")
-
-                if kid is kid_ref:
-                    source_coords_ref[tod_type] = source_coords
-                    shift_pix = (0,0)
-
-                # calculate pixel shift relative to ref kid
-                else:
-                    shift_pix = findPixShift(
-                        source_coords, source_coords_ref[tod_type], 
-                        ra_bins, dec_bins)
-
-            # pixel shift tracking
-            shifts.append((kid, *shift_pix)) # [[kid, ra_shift, dec_shift],[...]]
-
-            log.info(f"shift_pix={shift_pix}")
-
-            # shift the image to align
-            zz  = shift(zz, np.flip(shift_pix), cval=np.nan, order=0)
-
-
-            # output each single map
-            # out  = np.array([rr, dd, zz])
-            # file  = os.path.join(dir_prods, f"map_{tod_type}_{kid_cnt[tod_type]}_kids")
-            # np.save(file, out)
-            # kid_cnt[tod_type] += 1
-
-# ============================================================================ #
-#     multi map
-
-            # # add to combined maps, or create if needed  
-            # zz_multi[tod_type] = ternNansum(zz_multi[tod_type], zz)
-
-            # # track how many kids had values for each pixel, for mean
-            # zz_kid_cnt[tod_type] = ternSum(zz_kid_cnt[tod_type], ~np.isnan(zz)) 
-
-            # if kid == kid_ref:
-            #     zz_multi[tod_type]   = zz
-            #     zz_kid_cnt[tod_type] = ~np.isnan(zz)
-            # else:
-            #     zz_multi[tod_type]   = nansum([zz_multi[tod_type], zz], axis=0)
-            #     zz_kid_cnt[tod_type] = np.sum([zz_kid_cnt[tod_type], ~np.isnan(zz)], axis=0)
-
-            # # divide sum map by count to get mean map for output
-            # zz_out  = np.divide(
-            #     zz_multi[tod_type], zz_kid_cnt[tod_type], 
-            #     where=zz_kid_cnt[tod_type].astype(bool))
-
-            # create or add to out map (noise wtd mean)
-            wtdzz_map  = zz/tod_noise       # zz wtd by noise
-            val_bmap   = ~np.isnan(zz)      # non-nan vals bool map
-            sumwts_map = val_bmap/tod_noise # wts sum map
-
-            if kid == kid_ref: # first KID (ref): add maps to dicts
-                zz_multi[tod_type]   = wtdzz_map
-                zz_kid_cnt[tod_type] = val_bmap
-                zz_wts_sum[tod_type] = sumwts_map
+            tod_noise  = todNoise(
+                tod, dat_sliced['time'], noise_cutoff_freq, noise_order)
             
-            else: # subsequent KIDs: sum maps
-                zz_multi[tod_type]   = nansum(
-                    [zz_multi[tod_type], wtdzz_map], axis=0)
-                zz_kid_cnt[tod_type] = np.sum(
-                    [zz_kid_cnt[tod_type], val_bmap], axis=0)
-                zz_wts_sum[tod_type] = np.sum(
-                    [zz_wts_sum[tod_type], sumwts_map], axis=0)
-            
-            # divide sum map by wts sum for wtd mean
-            zz_out  = np.divide(
-                zz_multi[tod_type], zz_wts_sum[tod_type], 
-                where=zz_kid_cnt[tod_type].astype(bool))
-        
-            # hack to add nans back in
-            # I can't figure out why this is needed
-            # nans are lost in the divide
-            # zz_out[zz_kid_cnt[tod_type]==0] = np.nan
-
-            # generate output array
-            out  = np.array([rr, dd, zz_out])
-            outs[tod_type] = out
-
-            # del(zz)
-
-# ============================================================================ #
-#     output
-
-            # output intermediary products
-            if (kid_cnts[tod_type]+1 in outputAtKidCnt):
-                fname = f"map_{tod_type}_{kid_cnts[tod_type]+1}_kids"
-                np.save(os.path.join(dir_prods, fname), out)
-
-            del(zz_out, out)
-
-# ============================================================================ #
-#     map wrapup
-
-            if tod_type == 'DF':
-                df_success = True
-
-            kid_cnts[tod_type] += 1
-
-        # this map failed, move to next map type
-        except Exception as e:
-            log.error(f"{e}\n{traceback.format_exc()}")
-
+        except:
+            log.warning(f"TOD ({tod_type}) generation failed.")
             continue
 
 # ============================================================================ #
-#   kid wrapup
+#     single map
+        
+        try:
 
-    # done with maps for this kid
-    if df_success:
-        kid_cnt += 1
-        print(".", end="", flush=True)
-        if kid_cnt % 100 == 0 and kid_cnt > 0:
-            print(kid_cnt, end="", flush=True)
+            # build the binned pixel maps
+            zz  = buildSingleKIDMap(tod, x, y, x_edges, y_edges)
+
+        except:
+            log.warning(f"Single KID map ({tod_type}) generation failed.")
+            continue
+
+# ============================================================================ #
+#     source coords
+        
+        if xform_params is None: # no pre-determined xform data
+            try:
+
+                # find x,y coords of source in this map
+                source_coords = sourceCoords(
+                        x, y, tod, tod_noise, peak_s, peak_w)
+                
+                if source_coords:
+
+                    log.info(f"source_coords={source_coords}")
+
+                    # store these source coords for combining
+                    source_coords_all[tod_type][kid] = source_coords
+                    
+                else: raise
+
+            except:
+                log.warning(f"Source coordinate determination failed.")
+                # can still use this map with no source coordinates
+                # but it can't contribute to finding transform
+                
+# ============================================================================ #
+#     map post
+
+        # store this map for combining
+        maps_all[tod_type][kid] = zz
+
+        # output this map to file
+        out  = np.array([xx, yy, zz])
+        fname = f"map_{tod_type}_kid_{kid}"
+        np.save(os.path.join(dir_out+'/'+dir_single, fname), out)
+
+        kids_per_map[tod_type] += 1
+
+        if tod_type == 'DF':
+            df_success = True
+
+# ============================================================================ #
+#   kid post
+
+    if df_success: # df map was generated for this kid
+        print(".", end="", flush=True) # success
+
+        # # print stmt every 100 kids processed
+        # if kid_cnt % 100 == 0 and kid_cnt > 0:
+        #     print(kid_cnt, end="", flush=True)
+
     else:
-        print("o", end="", flush=True)
-
-
+        print(f"({kid})", end="", flush=True) # no df map: fail
 
     gc.collect()
     
 
     
 # ============================================================================ #
-# POST
+# -POST-LOOP-
 # ============================================================================ #
 
 print(" Done.")
-print(f"Total number of KIDs contributing to maps = {kid_cnts}/{loop_cnt}")
-print("Saving final maps... ", end="")
+print(f"Total number of KIDs contributing to maps = {kids_per_map}/{kid_cnt}")
 
+# combine single KID maps (mean)
 for tod_type in maps_to_build:
+    print(f"Combing {len(maps_all[tod_type])} {tod_type} maps... ", end="")
 
-    # output final maps
+    # kids used for this map
+    kids = sorted(source_coords_all[tod_type].keys())
+
+
+# ============================================================================ #
+# Model Shifts
+    # shift maps using a fitted model
+    use_xform = False
+    if use_xform:
+
+        xform_params = (0.75, 1.5, np.pi/2, 0, 0)
+        
+        # do some gymnastics to get arrays
+        def tupsToArrays(d):
+            s = sorted(d.keys())
+            return (np.array([d[k][0] for k in s if k in kids]), 
+                    np.array([d[k][1] for k in s if k in kids]))
+        x,y = tupsToArrays(source_coords_all[tod_type])
+        a,b = tupsToArrays(abFromLayout(file_layout))
+
+        # calculate xform if needed
+        if xform_params is None:
+            try: 
+                xform_params = solveForMapXform(a, b, x, y)
+            except Exception:
+                log.warning(f"solveForMapXform failed.")
+                print("Failed.")
+                traceback.print_exc()
+                continue
+
+            # output xform to file
+            saveXformData(dir_out+'/'+file_xform, xform_params)
+
+        # find transformed center coordinates
+        X, Y = xformModel(*xform_params, a, b)
+        def mapMicronToPixel(x, y, xx, yy):
+            map_x = np.abs(xx[1,1] - xx[1,0])
+            map_y = np.abs(yy[1,1] - yy[0,1])
+            return (x/map_x, y/map_y)
+        X, Y = mapMicronToPixel(X, Y, xx, yy)
+        shifts = {
+            kid: (X[i], Y[i])
+            for i, kid in enumerate(kids)}
+        file_shifts = os.path.join(dir_out+'/'+dir_xform, f'shifts_{tod_type}.npy')
+        np.save(file_shifts, shifts)
+
+
+# ============================================================================ #
+# Source Shifts
+        
+    # shift maps using only found source coords insetad
+    else:
+
+        # x and y are in microns at this point; convert to map pixels
+        def mapMicronToPixel(x, y, xx, yy):
+            map_x = np.abs(xx[1,1] - xx[1,0])
+            map_y = np.abs(yy[1,1] - yy[0,1])
+            return (x/map_x, y/map_y)
+        X, Y = mapMicronToPixel(x, y, xx, yy)
+
+        # do some more gymnastics to get X and Y into format for shifts file
+        shifts = {
+            kid: (X[i], Y[i])
+            for i, kid in enumerate(kids)}
+    
+        # save shifts to file
+        file_shifts = os.path.join(dir_out+'/'+dir_xform, f'shifts_{tod_type}.npy')
+        np.save(file_shifts, shifts)
+
+
+# ============================================================================ #
+# Combine Maps
+        
+    # translate maps
+    zz_xformed = [
+        shift(maps_all[tod_type][kid], shifts[kid], cval=np.nan, order=0)
+        for kid in kids]
+
+    # combine maps
+    zz_combined = np.nanmean(zz_xformed, axis=0)
+
+    # output to file
     file  = os.path.join(dir_out, f"map_{tod_type}")
-    np.save(file, outs[tod_type])
-
-np.save(os.path.join(dir_out, "shifts"), shifts)
+    np.save(file, [xx, yy, zz_combined])
+    print("Done.")
 
 print(f"Done in {timer.deltat():.0f} seconds.")
