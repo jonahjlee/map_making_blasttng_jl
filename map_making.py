@@ -41,11 +41,17 @@ roach = 1
 
 maps_to_build = ['DF'] # options: ['A', 'P', 'DF']
 
+# platescale, band, psf
+platescale = 5.9075e-6 # deg/um = 21.267 arcsec/mm
+band = {1:500, 2:250, 3:350, 4:250, 5:250} # um
+psf = {1:0.0150, 2:0.0075, 3:0.0105, 4:0.0075, 5:0.0075} # deg
+# arcsec: 54, 27, 38, 27, 27
+# f/# = 3.87953; D=2.33 (w/ lyot stop)
+
 # map pixel bin sizes to use (determines final resolution)
 # beam is 0.01 degrees or 36 arcsec
-platescale = 5.9075e-6 # deg/um = 21.267 arcsec/mm
-x_bin = 0.01/platescale # degrees -> um
-y_bin = 0.01/platescale # degrees -> um
+pixels_per_beam = 2 # 2 in x and y = 4 pixel sampling of beam
+x_bin = y_bin = psf[roach]/pixels_per_beam/platescale # um
 
 # KID to use as the reference for shift table calculations
 kid_ref = {1:'0100', 2:'', 3:'0003', 4:'', 5:''}[roach]
@@ -83,7 +89,7 @@ elif roach == 5:
 file_layout = dir_root + f'map_making/detector_layouts/layout_roach{roach}.csv'
 
 # KID rejects list
-file_rejects = dir_root + f'map_making/kid_rejects/kid_rejects_roach{roach}.npy'
+file_rejects = dir_root + f'map_making/kid_rejects/kid_rejects_roach{roach}.dat'
 
 # log file
 log_file = 'map_making.log'
@@ -355,7 +361,7 @@ def loadKidRejects(file_rejects):
     '''
 
     # load rejects file
-    dat = np.load(file_rejects)
+    dat = np.loadtxt(file_rejects, delimiter=' ')
 
     return dat
 
@@ -448,8 +454,11 @@ def getTargSweepIQ(kid, dat_targs):
     dat_targs: (2D array; floats) Array of all target sweeps for this roach.
     '''
     
-    I = dat_targs[::2, int(kid)]
-    Q = dat_targs[1::2, int(kid)]
+    # I = dat_targs[::2, int(kid)]
+    # Q = dat_targs[1::2, int(kid)]
+
+    I = dat_targs[:, 2*int(kid)]
+    Q = dat_targs[:, 2*int(kid)+1]
     
     return I, Q
 
@@ -984,8 +993,8 @@ print("Done.", flush=True)
 print("Determining KIDs to use... ", end="", flush=True)
 
 # kids to use
-# kids = findAllKIDs(dir_roach) # all in dir_roach; sorted
-kids = KIDsToUse(file_layout) # from detector layout file; sorted
+kids = findAllKIDs(dir_roach) # all in dir_roach; sorted
+# kids = KIDsToUse(file_layout) # from detector layout file; sorted
 
 print(f"found {len(kids)}.")
 log.info(f"Found {len(kids)} KIDs to use.")
@@ -999,7 +1008,8 @@ try: xform_params = loadXformData(file_xform)
 except: xform_params = None
 
 # load KID rejects
-kid_rejects = loadKidRejects(file_rejects)
+try: kid_rejects = loadKidRejects(file_rejects)
+except: kid_rejects = []
 
 
 
@@ -1026,9 +1036,9 @@ for kid in kids:
         break
 
     # do not proceed with KID channels in reject list
-    if kid in kid_rejects:
-        log.info(f"This KID is on the reject list, skipping.")
-        continue
+    # if kid in kid_rejects:
+    #     log.info(f"This KID is on the reject list, skipping.")
+    #     continue
 
     log.info(f"delta_t = {timer.deltat()}")
     log.info(f"kid count = {kid_cnt+1}")
@@ -1181,6 +1191,14 @@ for tod_type in maps_to_build:
     # kids used for this map
     kids = sorted(source_coords_all[tod_type].keys())
 
+    # do some gymnastics to get arrays
+    def tupsToArrays(d):
+        s = sorted(d.keys())
+        return (np.array([d[k][0] for k in s if k in kids]), 
+                np.array([d[k][1] for k in s if k in kids]))
+    x,y = tupsToArrays(source_coords_all[tod_type])
+    a,b = tupsToArrays(abFromLayout(file_layout))
+
 
 # ============================================================================ #
 # Model Shifts
@@ -1188,15 +1206,7 @@ for tod_type in maps_to_build:
     use_xform = False
     if use_xform:
 
-        xform_params = (0.75, 1.5, np.pi/2, 0, 0)
-        
-        # do some gymnastics to get arrays
-        def tupsToArrays(d):
-            s = sorted(d.keys())
-            return (np.array([d[k][0] for k in s if k in kids]), 
-                    np.array([d[k][1] for k in s if k in kids]))
-        x,y = tupsToArrays(source_coords_all[tod_type])
-        a,b = tupsToArrays(abFromLayout(file_layout))
+        # xform_params = (0.75, 1.5, np.pi/2, 0, 0)
 
         # calculate xform if needed
         if xform_params is None:
@@ -1240,7 +1250,8 @@ for tod_type in maps_to_build:
 
         # do some more gymnastics to get X and Y into format for shifts file
         shifts = {
-            kid: (X[i], Y[i])
+            # kid: (X[i], Y[i])
+            kid: (-Y[i], -X[i]) # somethings messed up
             for i, kid in enumerate(kids)}
     
         # save shifts to file
