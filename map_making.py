@@ -361,7 +361,7 @@ def loadKidRejects(file_rejects):
     '''
 
     # load rejects file
-    dat = np.loadtxt(file_rejects, delimiter=' ')
+    dat = np.loadtxt(file_rejects, delimiter=' ', dtype=str)
 
     return dat
 
@@ -1036,9 +1036,10 @@ for kid in kids:
         break
 
     # do not proceed with KID channels in reject list
-    # if kid in kid_rejects:
-    #     log.info(f"This KID is on the reject list, skipping.")
-    #     continue
+    if kid in kid_rejects:
+        print("r", end="", flush=True)
+        log.info(f"This KID is on the reject list, skipping.")
+        continue
 
     log.info(f"delta_t = {timer.deltat()}")
     log.info(f"kid count = {kid_cnt+1}")
