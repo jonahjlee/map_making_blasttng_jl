@@ -4,8 +4,7 @@
 # James Burgoyne jburgoyne@phas.ubc.ca 
 # CCAT Prime 2024
 #
-# Script to make the amplitude, phase, and df maps from all the kids.
-# Uses BLAST-TNG data.
+# Script to make naive combined maps of BLAST-TNG data.
 # ============================================================================ #
 
 
@@ -26,18 +25,18 @@ import numba as nb
 import astropy.units as u
 from astropy.time import Time
 from astropy.coordinates import SkyCoord, EarthLocation, AltAz
-from scipy.ndimage import shift
-from scipy.ndimage import affine_transform
+from scipy.ndimage import shift, gaussian_filter
+# from scipy.ndimage import affine_transform
 from scipy.signal import butter, filtfilt, find_peaks
-from scipy.optimize import fmin, minimize, differential_evolution
-
+from scipy.optimize import minimize
+# from scipy.optimize import differential_evolution, fmin
 
 
 # ============================================================================ #
 # -CONFIG-
 # ============================================================================ #
 
-roach = 1
+roach = 3
 
 maps_to_build = ['DF'] # options: ['A', 'P', 'DF']
 
@@ -99,7 +98,7 @@ dir_single = 'single_maps/'
 
 # map aligning parameters output dir and file
 dir_xform = 'align/'
-file_xform = dir_xform + f'align_roach{roach}.npy'
+# file_xform = dir_xform + f'align_roach{roach}.npy'
 file_source_coords = dir_xform + f'source_coords_roach{roach}.npy'
 
 # first unused KID channel (2469 total used channels)
@@ -642,42 +641,82 @@ def weightedMedian(data, weights):
 
 # ============================================================================ #
 # sourceCoords
-def sourceCoords(x, y, tod, noise, s, w, t=0.5):
-    '''Determine source coordinates in x,y.
-
-    x, y: (1D array; floats) Time ordered data coords, e.g. az/el.
-    tod: (1D array; floats) Time ordered data to find source in, e.g. DF.
-    noise: (float) Noise in tod.
-    s: (float) Prominence of peak in multiples of noise.
-    w: (int) Width of peak in tod indices.
-    t: (float) Threshold to filter peaks [tod units]
+def sourceCoords(xx, yy, zz):
+    '''Find source (in image coords); smooth then find max pixel.
+    
+    xx, yy, zz: (2D arrays of floats) The image data (meshgrid style).
     '''
-
-    # find peaks in tod of source passing over KID
-    i_peaks, peak_info = detectPeaks(tod, noise, s, w)
-
-    # use peak prominences as weights for weighted mean
-    wts = peak_info['prominences']
     
-    # no peaks!
-    if len(i_peaks) < 1:
-        log.warning("No peaks to determine source coords.")
-        return None
+    # gaussian smoothing
+    smoothing_kernel = 2 # in pixel coords
+    nonan_array = np.where(np.isnan(zz), np.nanmedian(zz), zz)
+    smoothed_array = gaussian_filter(nonan_array, sigma=smoothing_kernel)
     
-    # func to determine source coords
-    def xy(xf, yf, wts):
-        x_source = weightedMedian(xf, weights=wts)
-        y_source = weightedMedian(yf, weights=wts)
-        return x_source, y_source
+    # identify source in smoothed map by max value (pixel coords)
+    max_coords = np.unravel_index(np.argmax(smoothed_array), smoothed_array.shape) 
+    
+    # convert max point to image coords
+    x_im, y_im = xx[max_coords], yy[max_coords]
 
-    # use only peaks above threshold (0<t<1)
-    f = tod[i_peaks] >= t
-    if len(f) > 0:
-        return xy(x[i_peaks][f], y[i_peaks][f], wts[f])
+    # im coords have origin at center
+    return x_im, y_im
+
+
+# ============================================================================ #
+# sourceCoordsToPixShift
+def sourceCoordsToPixShift(x_im, y_im, xx, yy):
+    '''
+    '''
     
-    # use ALL peaks instead
-    log.info("No peaks above threshold. Trying all peaks to find source coords.")
-    return xy(x[i_peaks], y[i_peaks], wts)
+    # bin sizes
+    dx = np.abs(xx[0,1] - xx[0,0])
+    dy = np.abs(yy[1,0] - yy[0,0])
+
+    # calculate shift in pix coords
+    # shift is negative of position
+    # divide by bin size to convert to pix deltas
+    Δx = -x_im/dx    
+    Δy = -y_im/dy
+
+    return Δx, Δy
+
+
+# def sourceCoords(x, y, tod, noise, s, w, t=0.5):
+    # '''Determine source coordinates in x,y.
+
+    # x, y: (1D array; floats) Time ordered data coords, e.g. az/el.
+    # tod: (1D array; floats) Time ordered data to find source in, e.g. DF.
+    # noise: (float) Noise in tod.
+    # s: (float) Prominence of peak in multiples of noise.
+    # w: (int) Width of peak in tod indices.
+    # t: (float) Threshold to filter peaks [tod units]
+    # '''
+
+    # # find peaks in tod of source passing over KID
+    # i_peaks, peak_info = detectPeaks(tod, noise, s, w)
+
+    # # use peak prominences as weights for weighted mean
+    # wts = peak_info['prominences']
+    
+    # # no peaks!
+    # if len(i_peaks) < 1:
+    #     log.warning("No peaks to determine source coords.")
+    #     return None
+    
+    # # func to determine source coords
+    # def xy(xf, yf, wts):
+    #     x_source = weightedMedian(xf, weights=wts)
+    #     y_source = weightedMedian(yf, weights=wts)
+    #     return x_source, y_source
+
+    # # use only peaks above threshold (0<t<1)
+    # f = tod[i_peaks] >= t
+    # if len(f) > 0:
+    #     return xy(x[i_peaks][f], y[i_peaks][f], wts[f])
+    
+    # # use ALL peaks instead
+    # log.info("No peaks above threshold. Trying all peaks to find source coords.")
+    # return xy(x[i_peaks], y[i_peaks], wts)
 
 
 # ============================================================================ #
@@ -917,7 +956,6 @@ log.info(f"{dir_out = }")
 log.info(f"{file_layout = }")
 log.info(f"{log_file = }")
 log.info(f"{dir_single = }")
-log.info(f"{file_xform = }")
 log.info(f"{file_source_coords = }")
 log.info(f"{kid_max = }")
 log.info(f"{peak_s = }")
@@ -1003,10 +1041,6 @@ log.info(f"Found {len(kids)} KIDs to use.")
 kids.remove(kid_ref)
 kids.insert(0, kid_ref)
 
-# load map transform data from file
-try: xform_params = loadXformData(file_xform)
-except: xform_params = None
-
 # load KID rejects
 try: kid_rejects = loadKidRejects(file_rejects)
 except: kid_rejects = []
@@ -1018,6 +1052,7 @@ except: kid_rejects = []
 # ============================================================================ #
 
 print("Processing KIDs timestreams:", flush=True)
+print("(.: success, r: on reject list, l: loading fail, t: TOD processing fail, m: single KID map production fail, s: source coordinates determination fail)")
 
 source_coords_all = {tod_type: {} for tod_type in maps_to_build}
 maps_all = {tod_type: {} for tod_type in maps_to_build}
@@ -1066,7 +1101,7 @@ for kid in kids:
     except Exception as e:
         log.error(f"{e}\n{traceback.format_exc()}")
 
-        print("o", end="", flush=True)
+        print("l", end="", flush=True)
         continue
 
 
@@ -1101,12 +1136,13 @@ for kid in kids:
             # brings master and roach tods in sync
             tod = tod[:cal_i - slice_i]
 
-            # determine tod noise in featureless region
+            # determine tod noise
             tod_noise  = todNoise(
                 tod, dat_sliced['time'], noise_cutoff_freq, noise_order)
             
         except:
             log.warning(f"TOD ({tod_type}) generation failed.")
+            print("t", end="", flush=True)
             continue
 
 # ============================================================================ #
@@ -1119,31 +1155,22 @@ for kid in kids:
 
         except:
             log.warning(f"Single KID map ({tod_type}) generation failed.")
+            print("m", end="", flush=True)
             continue
 
 # ============================================================================ #
 #     source coords
         
-        if xform_params is None: # no pre-determined xform data
-            try:
+        try:
+            source_coords = sourceCoords(xx, yy, zz) # x_im, y_im
+            source_coords_all[tod_type][kid] = source_coords
+            log.info(f"source_coords={source_coords}")
 
-                # find x,y coords of source in this map
-                source_coords = sourceCoords(
-                        x, y, tod, tod_noise, peak_s, peak_w)
+        except:
+            log.warning(f"Source coordinate determination failed.")
+            print("s", end="", flush=True)
+            continue
                 
-                if source_coords:
-
-                    log.info(f"source_coords={source_coords}")
-
-                    # store these source coords for combining
-                    source_coords_all[tod_type][kid] = source_coords
-                    
-                else: raise
-
-            except:
-                log.warning(f"Source coordinate determination failed.")
-                # can still use this map with no source coordinates
-                # but it can't contribute to finding transform
                 
 # ============================================================================ #
 #     map post
@@ -1192,80 +1219,25 @@ for tod_type in maps_to_build:
     # kids used for this map
     kids = sorted(source_coords_all[tod_type].keys())
 
-    # do some gymnastics to get arrays
-    def tupsToArrays(d):
-        s = sorted(d.keys())
-        return (np.array([d[k][0] for k in s if k in kids]), 
-                np.array([d[k][1] for k in s if k in kids]))
-    x,y = tupsToArrays(source_coords_all[tod_type])
-    a,b = tupsToArrays(abFromLayout(file_layout))
-
-
-# ============================================================================ #
-# Model Shifts
-    # shift maps using a fitted model
-    use_xform = False
-    if use_xform:
-
-        # xform_params = (0.75, 1.5, np.pi/2, 0, 0)
-
-        # calculate xform if needed
-        if xform_params is None:
-            try: 
-                xform_params = solveForMapXform(a, b, x, y)
-            except Exception:
-                log.warning(f"solveForMapXform failed.")
-                print("Failed.")
-                traceback.print_exc()
-                continue
-
-            # output xform to file
-            saveXformData(dir_out+'/'+file_xform, xform_params)
-
-        # find transformed center coordinates
-        X, Y = xformModel(*xform_params, a, b)
-        def mapMicronToPixel(x, y, xx, yy):
-            map_x = np.abs(xx[1,1] - xx[1,0])
-            map_y = np.abs(yy[1,1] - yy[0,1])
-            return (x/map_x, y/map_y)
-        X, Y = mapMicronToPixel(X, Y, xx, yy)
-        shifts = {
-            kid: (X[i], Y[i])
-            for i, kid in enumerate(kids)}
-        file_shifts = os.path.join(dir_out+'/'+dir_xform, f'shifts_{tod_type}.npy')
-        np.save(file_shifts, shifts)
-
 
 # ============================================================================ #
 # Source Shifts
-        
-    # shift maps using only found source coords insetad
-    else:
-
-        # x and y are in microns at this point; convert to map pixels
-        def mapMicronToPixel(x, y, xx, yy):
-            map_x = np.abs(xx[1,1] - xx[1,0])
-            map_y = np.abs(yy[1,1] - yy[0,1])
-            return (x/map_x, y/map_y)
-        X, Y = mapMicronToPixel(x, y, xx, yy)
-
-        # do some more gymnastics to get X and Y into format for shifts file
-        shifts = {
-            # kid: (X[i], Y[i])
-            kid: (-Y[i], -X[i]) # somethings messed up
-            for i, kid in enumerate(kids)}
     
-        # save shifts to file
-        file_shifts = os.path.join(dir_out+'/'+dir_xform, f'shifts_{tod_type}.npy')
-        np.save(file_shifts, shifts)
+    shifts = {
+        kid: sourceCoordsToPixShift(xy[0], xy[1], xx, yy)
+        for kid, xy in source_coords_all[tod_type].items()}
+
+    # save shifts to file
+    file_shifts = os.path.join(dir_out+'/'+dir_xform, f'shifts_{tod_type}.npy')
+    np.save(file_shifts, shifts)
 
 
 # ============================================================================ #
 # Combine Maps
         
-    # translate maps
+    # translate maps ([::-1] to deal with numpy reversed x/y - I think)
     zz_xformed = [
-        shift(maps_all[tod_type][kid], shifts[kid], cval=np.nan, order=0)
+        shift(maps_all[tod_type][kid], shifts[kid][::-1], cval=np.nan, order=0)
         for kid in kids]
 
     # combine maps
