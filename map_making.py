@@ -14,7 +14,6 @@ import gc
 import sys
 import time
 from datetime import datetime
-# from collections import namedtuple
 from typing import NamedTuple
 import logging
 import warnings
@@ -26,10 +25,8 @@ import astropy.units as u
 from astropy.time import Time
 from astropy.coordinates import SkyCoord, EarthLocation, AltAz
 from scipy.ndimage import shift, gaussian_filter
-# from scipy.ndimage import affine_transform
 from scipy.signal import butter, filtfilt, find_peaks
 from scipy.optimize import minimize
-# from scipy.optimize import differential_evolution, fmin
 
 
 # ============================================================================ #
@@ -64,31 +61,42 @@ slice_i = {1:37125750, 2:0, 3:37141250, 4:0, 5:0}[roach] # RCW 92
 cal_i   = slice_i + 516_000 # cal lamp
 cal_f   = slice_i + 519_000
 
+# base data directories
+dir_root   = '/media/player1/blast2020fc1/fc1/'   # control computer
+dir_conv   = dir_root + 'converted/'              # control computer
+
+# dir_root   = '/Users/james/Documents/Projects' \
+#              '/2022/p22a__CCATp/map_making/data/'   # James' local
+# dir_conv   = dir_root                               # James' local
+
 # data directories and files
-dir_root   = '/media/player1/blast2020fc1/fc1/'
-dir_conv   = dir_root + 'converted/' # converted to npy's
 dir_master = dir_conv + 'master_2020-01-06-06-21-22/'
+dir_roach  = dir_conv
+dir_targ   = dir_root + f'roach_flight/roach{roach}/targ/'
 if roach == 1:
-    dir_roach   = dir_conv + f'roach1_2020-01-06-06-22-01/'
-    dir_targ    = dir_root + f'roach_flight/roach1/targ/Tue_Jan__7_00_55_50_2020/'
+    dir_roach   += 'roach1_2020-01-06-06-22-01/'
+    dir_targ    += 'Tue_Jan__7_00_55_50_2020/'
 elif roach == 2:
-    dir_roach   = dir_conv + f'roach2_2020-01-06-06-22-01/'
-    dir_targ    = dir_root + f'roach_flight/roach2/targ/Tue_Jan__7_00_55_50_2020/'
+    dir_roach   += 'roach2_2020-01-06-06-22-01/'
+    dir_targ    += 'Tue_Jan__7_00_55_50_2020/'
 elif roach == 3:
-    dir_roach   = dir_conv + f'roach3_2020-01-06-06-21-56/'
-    dir_targ    = dir_root + f'roach_flight/roach3/targ/Tue_Jan__7_00_55_51_2020/'
+    dir_roach   += 'roach3_2020-01-06-06-21-56/'
+    dir_targ    += 'Tue_Jan__7_00_55_51_2020/'
 elif roach == 4:
-    dir_roach   = dir_conv + f'roach4_2020-01-06-06-22-01/'
-    dir_targ    = dir_root + f'roach_flight/roach4/targ/Tue_Jan__7_00_55_50_2020/'
+    dir_roach   += 'roach4_2020-01-06-06-22-01/'
+    dir_targ    += 'Tue_Jan__7_00_55_50_2020/'
 elif roach == 5:
-    dir_roach   = dir_conv + f'roach5_2020-01-06-06-22-01/'
-    dir_targ    = dir_root + f'roach_flight/roach5/targ/Tue_Jan__7_00_55_51_2020/'
+    dir_roach   += 'roach5_2020-01-06-06-22-01/'
+    dir_targ    += 'Tue_Jan__7_00_55_51_2020/'
 
 # detector layout file
 file_layout = dir_root + f'map_making/detector_layouts/layout_roach{roach}.csv'
 
 # KID rejects list
 file_rejects = dir_root + f'map_making/kid_rejects/kid_rejects_roach{roach}.dat'
+
+# common-mode file
+file_commonmode = f'common_mode_roach{roach}.dat'
 
 # log file
 log_file = 'map_making.log'
@@ -229,79 +237,20 @@ def loadTargSweepsData(dir_targ):
     dir_targ: (str or path) The absolute filename str or path.
     '''
     
+    # load and combine targ files (If, Qf)
     pattern = r'^\d{9}\.dat$'
     files = os.listdir(dir_targ)
     matched_files = [f for f in files if re.match(pattern, f)]
     sorted_files = sorted(matched_files)
-    
     dat_targs = np.array([
         np.fromfile(os.path.join(dir_targ, f), dtype = '<f')
         for f in sorted_files
     ])
     
-    return dat_targs
-
-
-# ============================================================================ #
-# xformModel
-def xformModelHeader():
-    return 'M, N, θ, xo, yo' 
-def xformModel(M, N, θ, xo, yo, a, b):
-    '''The transformation model 
-    to apply to the detector layouts for map alignment.
-
-    M: (float) Model parameter: Scale x.
-    N: (float) Model parameter: Scale y.
-    θ: (float) Model parameter: rotation [rads].
-    xo, yo: (floats) Model parameter: translation.
-    a, b: (1D array of floats) The points to transform (x and y arrays).
-
-    Note that xo, yo, a, b are all in coord units.
-    '''
+    # load frequency file (Ff)
+    Ff = np.loadtxt(dir_targ + 'sweep_freqs.dat')
     
-    # rotate
-    X = (a*np.cos(θ) - b*np.sin(θ))
-    Y = (a*np.sin(θ) + b*np.cos(θ))
-
-    # scale
-    X *= M
-    Y *= N
-
-    # shift
-    X -= xo
-    Y -= yo
-
-    # X = (M*a*np.cos(θ) - b*np.sin(θ)) - xo
-    # Y = (a*np.sin(θ) + N*b*np.cos(θ)) - yo
-
-    return X, Y
-
-
-# ============================================================================ #
-# loadXformData
-def loadXformData(file_xform):
-    '''Load the pre-determined map transform data (to align maps).
-
-    file_xform: (str) The absolute filename of the transform information file.
-    '''
-
-    # load data from file
-    xform_params = np.loadtxt(file_xform, skiprows=1, delimiter=',')
-
-    return xform_params
-
-
-# ============================================================================ #
-# saveXformData
-def saveXformData(file_xform, xform_params):
-    '''Save calculated map transform data (for aligning maps).
-
-    file_xform: (str) The absolute filename of the transform information file.
-    xform_params: (tuple of floats) The transformation parameters.
-    '''
-
-    np.savetxt(file_xform, xform_params, delimiter=',', 
-               header=xformModelHeader())
+    return dat_targs, Ff
 
 
 # ============================================================================ #
@@ -330,30 +279,6 @@ def findAllKIDs(directory):
 
 
 # ============================================================================ #
-# KIDsToUse
-def KIDsToUse(file_layout):
-    '''Load the kids to use from the detector layout file.
-    Note that the KID numbers are strings with leading zero, e.g. '0100'.
-
-    file_layout: (str) Absolute file name of detector layout file.
-    '''
-
-    # Load layout file CSV
-    data = np.loadtxt(file_layout, skiprows=1, delimiter=',')
-
-    # kids (chans) field
-    kid_vals = data[:,0].astype(int)
-
-    # sort ascending
-    kid_vals_sorted = sorted(kid_vals)
-
-    # convert to 4 digit strings
-    kids = [f"{kid:04}" for kid in kid_vals_sorted]
-    
-    return kids
-
-
-# ============================================================================ #
 # loadKidRejects
 def loadKidRejects(file_rejects):
     '''
@@ -363,28 +288,6 @@ def loadKidRejects(file_rejects):
     dat = np.loadtxt(file_rejects, delimiter=' ', dtype=str)
 
     return dat
-
-
-# ============================================================================ #
-# abFromLayout
-def abFromLayout(file_layout):
-    '''Get the a,b coords from the detector layout file.
-
-    file_layout: (str) Absolute file name of detector layout file.
-    '''
-
-    # Load layout file CSV
-    data = np.loadtxt(file_layout, skiprows=1, delimiter=',')
-
-    # prep the fields
-    kids = [f"{kid:04}" for kid in sorted(data[:,0].astype(int))]
-    a = data[:,1].astype(float)
-    b = data[:,2].astype(float)
-
-    # convert to dict:
-    ab = {kid: (a[i],b[i]) for i,kid in enumerate(kids)}
-
-    return ab
 
 
 # ============================================================================ #
@@ -481,45 +384,52 @@ def createPhase(I, Q):
 
 
 # ============================================================================ #
-# createΔfx_grad
-def createΔfx_grad(I, Q, If, Qf):
-    '''Calculate Δfx from 'gradient' method.'''
-        
-    dIfdf = np.diff(If)/1e3        # Δx is const. so Δy=dI/df
-    dQfdf = np.diff(Qf)/1e3        # /1e3 for units
+# df_IQangle
+def df_IQangle(I, Q, If, Qf, Ff, i_f0=None):
+    '''Calculate df using IQ Angle Method.
     
-    Zf = np.abs(If + 1j*Qf)
-    i_f0 = np.argmin(Zf)
+    I: (1D array of floats) Timestream S21 real component.
+    Q: (1D array of floats) Timestream S21 imaginary component.
+    If: (1D array of floats) Target sweep S21 real component.
+    Qf: (1D array of floats) Target sweep S21 imaginary component.
+    Ff: (1D array of floats) Target sweep S21 frequency axis.
+    '''
     
-    dIfdff0 = dIfdf[i_f0]          # dI(f)/df at f0
-    dQfdff0 = dQfdf[i_f0]
+    if i_f0 is None:                        # resonant frequency index
+        i_f0 = np.argmin(np.abs(If + 1j*Qf)) 
     
-    I_n = I - np.mean(I)           # centre values on 0
-    Q_n = Q - np.mean(Q)           #
+    cI = (If.max() + If.min())/2            # centre of target IQ loop
+    cQ = (Qf.max() + Qf.min())/2
     
-    den = dIfdff0**2 + dQfdff0**2  # 
+    # target sweep
+    If_c, Qf_c = If - cI, Qf - cQ           # shift center to origin
+    θf = np.arctan2(Qf_c, If_c)             # find IQ angles
     
-    numx = ((I_n*dIfdff0 + Q_n*dQfdff0))
-    Δfx = numx/den
+    # observations
+    I_c, Q_c = I - cI, Q - cQ               # shift origin
+    θ = np.arctan2(Q_c, I_c)                # find IQ angles
     
-    # numy = ((Q_n*dIfdff0 - I_n*dQfdff0))
-    # Δfy = numy/den
+    # adjust frequencies for delta from f0
+    Ff0 = Ff - Ff[i_f0]                     # center Ff on f0
     
-    return Δfx
+    # interpolate
+    df = np.interp(θ, θf, Ff0, period=2*np.pi)
+    
+    return df/Ff[i_f0]
 
 
 # ============================================================================ #
 # genTOD
-def genTOD(tod_type, I, Q, If, Qf):
+def genTOD(tod_type, I, Q, If, Qf, Ff):
     '''
     '''
 
-    match tod_type:
-        case 'A' : return createAmp(I, Q)
-        case 'P' : return createPhase(I, Q)
-        case 'DF': return createΔfx_grad(I, Q, If, Qf)
-        
-        case _: raise Exception(f'Error: Invalid tod_type ({tod_type})')
+    if   tod_type == 'A' : return createAmp(I, Q)
+    elif tod_type == 'P' : return createPhase(I, Q)
+    # elif tod_type == 'DF': return createΔfx_grad(I, Q, If, Qf)
+    elif tod_type == 'DF': return df_IQangle(I, Q, If, Qf, Ff)
+
+    else: raise Exception(f'Error: Invalid tod_type ({tod_type})')
 
 
 
@@ -679,97 +589,6 @@ def sourceCoordsToPixShift(x_im, y_im, xx, yy):
     Δy = -y_im/dy
 
     return Δx, Δy
-
-
-# def sourceCoords(x, y, tod, noise, s, w, t=0.5):
-    # '''Determine source coordinates in x,y.
-
-    # x, y: (1D array; floats) Time ordered data coords, e.g. az/el.
-    # tod: (1D array; floats) Time ordered data to find source in, e.g. DF.
-    # noise: (float) Noise in tod.
-    # s: (float) Prominence of peak in multiples of noise.
-    # w: (int) Width of peak in tod indices.
-    # t: (float) Threshold to filter peaks [tod units]
-    # '''
-
-    # # find peaks in tod of source passing over KID
-    # i_peaks, peak_info = detectPeaks(tod, noise, s, w)
-
-    # # use peak prominences as weights for weighted mean
-    # wts = peak_info['prominences']
-    
-    # # no peaks!
-    # if len(i_peaks) < 1:
-    #     log.warning("No peaks to determine source coords.")
-    #     return None
-    
-    # # func to determine source coords
-    # def xy(xf, yf, wts):
-    #     x_source = weightedMedian(xf, weights=wts)
-    #     y_source = weightedMedian(yf, weights=wts)
-    #     return x_source, y_source
-
-    # # use only peaks above threshold (0<t<1)
-    # f = tod[i_peaks] >= t
-    # if len(f) > 0:
-    #     return xy(x[i_peaks][f], y[i_peaks][f], wts[f])
-    
-    # # use ALL peaks instead
-    # log.info("No peaks above threshold. Trying all peaks to find source coords.")
-    # return xy(x[i_peaks], y[i_peaks], wts)
-
-
-# ============================================================================ #
-# solveForMapXform
-def solveForMapXform(a, b, x, y):
-    
-    def chi_sq(params, a, b, x, y):
-        '''χ^2 to minimize for detector position model fit.
-        
-        params: (tuple of floats) Model parameters. 
-        a, b: (1D arrays) Locations in layout map [um].
-        x, y: (1D arrays) Locations in offset map [um].
-        '''
-
-        X, Y = xformModel(*params, a, b)
-
-        return np.sum((x - X)**2 + (y - Y)**2)
-    
-    # # fmin
-    # init_guess = (1, 1, 0, 0, 0) # (M, N, θ, xo, yo)
-    # params = fmin(chi_sq, init_guess, args=(a, b, x, y))
-    # return params 
-
-    # # differential_evolution
-    # bounds = [(0, 100), (0, 100), (-np.pi, np.pi), (-50000, 50000), (-50000, 50000)]
-    # result = differential_evolution(chi_sq, bounds=bounds, args=(a, b, x, y))
-    # return result.x
-
-    # scipy.optimize.minimize
-    init_guess = (1, 1, 0, 0, 0) # (M, N, θ, xo, yo)
-    bounds = [(0.9, 1.1), (0.9, 1.1), (-np.pi, np.pi), (-50000, 50000), (-50000, 50000)]
-    result = minimize(chi_sq, x0=init_guess, args=(a, b, x, y), bounds=bounds)
-    return result.x
-
-
-# ============================================================================ #
-# findPixShift
-# def findPixShift(p, ref, ra_bins, dec_bins):
-    # '''Find the bin shift to move point to reference.
-
-    # p: (2tuple; floats) Point (RA, DEC).
-    # ref: (2tuple; floats) Reference point (RA, DEC).
-    # ra_bins: (1D array; floats) RA map bins.
-    # dec_bins: (1D array; floats) DEC map bins.
-    # '''
-
-    # def findBin(v, bins):
-    #     return np.argmin(np.abs(v - bins))
-
-    # bin_ref = (findBin(ref[0], ra_bins), findBin(ref[1], dec_bins))
-    # bin_p   = (findBin(p[0], ra_bins), findBin(p[1], dec_bins))
-
-    # return np.array(bin_ref) - np.array(bin_p)
 
 
 
@@ -953,10 +772,10 @@ log.info(f"{dir_master = }")
 log.info(f"{dir_roach = }")
 log.info(f"{dir_targ = }")
 log.info(f"{dir_out = }")
-log.info(f"{file_layout = }")
 log.info(f"{log_file = }")
 log.info(f"{dir_single = }")
 log.info(f"{file_source_coords = }")
+log.info(f"{file_rejects = }")
 log.info(f"{kid_max = }")
 log.info(f"{peak_s = }")
 log.info(f"{peak_w = }")
@@ -975,7 +794,7 @@ print(prntPad + "Loading common data... ", end="", flush=True)
 
 # load the common data
 dat_raw = loadCommonData(roach, dir_master, dir_roach)
-dat_targs = loadTargSweepsData(dir_targ)
+dat_targs, Ff = loadTargSweepsData(dir_targ)
 
 print("Done.", flush=True)
 print(prntPad + "Aligning timestreams... ", end="", flush=True)
@@ -1032,7 +851,6 @@ print("Determining KIDs to use... ", end="", flush=True)
 
 # kids to use
 kids = findAllKIDs(dir_roach) # all in dir_roach; sorted
-# kids = KIDsToUse(file_layout) # from detector layout file; sorted
 
 print(f"found {len(kids)}.")
 log.info(f"Found {len(kids)} KIDs to use.")
@@ -1044,6 +862,59 @@ kids.insert(0, kid_ref)
 # load KID rejects
 try: kid_rejects = loadKidRejects(file_rejects)
 except: kid_rejects = []
+
+
+
+# ============================================================================ #
+# -c(t) LOOP-
+# ============================================================================ #
+  
+tod_sum = None
+tod_sum_cnt = 0
+    
+print("Calculating common-mode... ", end="", flush=True)
+log.info(f"COMMON-MODE CALCULATION -------")
+log.info(f"delta_t = {timer.deltat()}")
+
+for kid in kids:
+    
+    if (int(kid) >= kid_max) or (kid in kid_rejects):
+        continue
+        
+    try:
+        # the following is a condensed version of what's done in KID-LOOP
+        # look there for comments
+        I, Q = loadKIDData(roach, kid)
+        targ = getTargSweepIQ(kid, dat_targs)
+        I_slice = I[dat_align_indices[slice_i:cal_f]]
+        Q_slice = Q[dat_align_indices[slice_i:cal_f]]
+        del(I, Q)
+        tod = genTOD('DF', I_slice, Q_slice, *targ, Ff) # harcoded DF type
+        tod = normTod(tod, cal_i - slice_i, cal_f - slice_i)
+        tod = tod[:cal_i - slice_i]
+        
+        # add this tod to summation tod
+        if tod_sum is None:
+            tod_sum = tod
+        else:
+            tod_sum += tod
+            
+        # track number of tods that contributed for mean
+        tod_sum_cnt += 1
+        
+    except Exception as e:
+        log.info(f"KID = {kid}:")
+        log.error(f"{e}\n{traceback.format_exc()}")
+           
+commonmode = tod_sum/tod_sum_cnt
+
+np.save(os.path.join(dir_out, file_commonmode), commonmode)
+
+print(f"Done with {tod_sum_cnt} KIDs. ", flush=True)
+log.info(f"COMMON-MODE CALCULATION DONE -------")
+log.info(f"delta_t = {timer.deltat()}")
+
+del(tod_sum, tod_sum_cnt)
 
 
 
@@ -1123,10 +994,11 @@ for kid in kids:
         try:
 
             # build tod
-            tod = genTOD(tod_type, I_slice, Q_slice, *targ)
+            tod = genTOD(tod_type, I_slice, Q_slice, *targ, Ff)
+            # genTOD(tod_type, I, Q, If, Qf, Ff) # need Ff
 
             # invert tod data if peaks are negative
-            tod = invTodIfNegPeaks(tod, cal_i - slice_i, cal_f - slice_i)
+            # tod = invTodIfNegPeaks(tod, cal_i - slice_i, cal_f - slice_i)
 
             # normalize tod data to calibration lamp
             # make sure tod peaks are positive first
@@ -1135,6 +1007,10 @@ for kid in kids:
             # slice away calibration region
             # brings master and roach tods in sync
             tod = tod[:cal_i - slice_i]
+            
+            # remove common-mode
+            if tod_type == 'DF': # only doing this for DF
+                tod -= commonmode
 
             # determine tod noise
             tod_noise  = todNoise(
@@ -1235,7 +1111,7 @@ for tod_type in maps_to_build:
 # ============================================================================ #
 # Combine Maps
         
-    # translate maps ([::-1] to deal with numpy reversed x/y - I think)
+    # translate maps ([::-1] to deal with numpy reversed x/y?)
     zz_xformed = [
         shift(maps_all[tod_type][kid], shifts[kid][::-1], cval=np.nan, order=0)
         for kid in kids]
