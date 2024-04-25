@@ -33,7 +33,7 @@ from scipy.optimize import minimize
 # -CONFIG-
 # ============================================================================ #
 
-roach = 3
+roach = 1
 
 maps_to_build = ['DF'] # options: ['A', 'P', 'DF']
 
@@ -63,11 +63,13 @@ cal_f   = slice_i + 519_000
 
 # base data directories
 dir_root   = '/media/player1/blast2020fc1/fc1/'   # control computer
-dir_conv   = dir_root + 'converted/'              # control computer
+dir_conv   = dir_root + "converted/"              # control computer
 
-# dir_root   = '/Users/james/Documents/Projects' \
-#              '/2022/p22a__CCATp/map_making/data/'   # James' local
-# dir_conv   = dir_root                               # James' local
+"""
+dir_root   = '/Users/james/Documents/Projects' \
+             '/2022/p22a__CCATp/map_making/data/' # James' local
+dir_conv   = dir_root                             # James' local
+"""
 
 # data directories and files
 dir_master = dir_conv + 'master_2020-01-06-06-21-22/'
@@ -744,6 +746,34 @@ def nansum(arr, axis=0):
     return sum_arr
 
 
+# ============================================================================ #
+# nanaverage
+def nanaverage(arr, weights=None, axis=None):
+    # Create a mask where NaN values are True
+    mask = np.isnan(arr)
+    
+    # Replace NaN values with zeros for calculation if weights are provided
+    if weights is not None:
+        arr = np.where(mask, 0, arr)
+    
+    # Calculate the sum along the specified axis, ignoring NaN values
+    total = np.nansum(arr, axis=axis)
+    
+    # Count the non-NaN values along the specified axis
+    count = np.sum(~mask, axis=axis)
+    
+    # Handle the case where count is zero to avoid division by zero
+    count[count == 0] = 1
+    
+    # Calculate the average
+    if weights is None:
+        avg = total / count.astype(float)
+    else:
+        avg = np.average(arr, weights=weights, axis=axis)
+    
+    return avg
+
+
 
 # ============================================================================ #
 # ------------
@@ -1117,7 +1147,9 @@ for tod_type in maps_to_build:
         for kid in kids]
 
     # combine maps
-    zz_combined = np.nanmean(zz_xformed, axis=0)
+    # zz_combined = np.nanmean(zz_xformed, axis=0)
+    zz_weights = [1 / np.nanstd(a) for a in zz_xformed]
+    zz_combined = nanaverage(zz_xformed, axis=0, weights=zz_weights)
 
     # output to file
     file  = os.path.join(dir_out, f"map_{tod_type}")
