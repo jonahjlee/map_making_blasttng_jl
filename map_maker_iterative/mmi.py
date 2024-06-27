@@ -10,26 +10,16 @@
 
 
 import os
-import re
 import gc
-import sys
 import time
 from datetime import datetime
-from typing import NamedTuple
 import logging
-import warnings
-import traceback
 import tracemalloc
 import numpy as np
-import numba as nb
-import astropy.units as u
-from astropy.time import Time
-from astropy.coordinates import SkyCoord, EarthLocation, AltAz
-from scipy.ndimage import shift, gaussian_filter
-from scipy.signal import butter, filtfilt, find_peaks
 
 from mmi_config import *
 import mmi_data_lib as dlib
+# import mmi_tod_lib as tlib
 import mmi_map_lib as mlib
 
 
@@ -143,6 +133,7 @@ def main():
     combined_map = None
 
     for iteration in range(10): # currently just doing 10 loops for testing
+        # is there a metric to decide when to stop looping?
 
         # create dir for this iteration
         dir_it = os.path.join(dir_out, f'it_{iteration}')
@@ -159,6 +150,7 @@ def main():
         # combine maps loop
         # loop over KIDs, generate single maps, combine
         def save_singles_func(kid, data):
+            # we can probably return all single maps and then save here?
             np.save(os.path.join(dir_it, dir_single, f"map_kid_{kid}"), data)
         combined_map, shifts, source_azel = mlib.combineMapsLoop(
             kids, dat_targs, Ff, dat_align_indices, roach, dir_roach, 
@@ -281,76 +273,6 @@ def genDirsForRun(suffix, dirs):
 
     return dir_out
 
-
-# # ============================================================================ #
-# # getCalKidDf
-# def getCalKidDf(kid, dat_targs, Ff, dat_align_indices, i_i=None, i_f=None):
-
-#     # load I and Q (memmap)
-#     I, Q = dlib.loadKIDData(roach, kid, dir_roach)
-
-#     # load target sweep
-#     targ = dlib.getTargSweepIQ(kid, dat_targs)
-
-#     # slice and align (include cal lamp in slice for now)
-#     I_slice = I[dat_align_indices[i_i:i_f]] # slicing align indices
-#     Q_slice = Q[dat_align_indices[i_i:i_f]]
-
-#     # build df tod
-#     tod = mlib.df_IQangle(I_slice, Q_slice, *targ, Ff)
-
-#     # normalize tod data to calibration lamp
-#     tod = mlib.normTod(tod, cal_i - slice_i, cal_f - slice_i)
-
-#     # slice away calibration region
-#     # brings master and roach tods in sync
-#     tod = tod[:cal_i - slice_i]
-
-#     return tod
-
-
-# # ============================================================================ #
-# # commomMode
-# def commomModeLoop(kids, dat_targs, Ff, dat_align_indices, ast=None):
-#     '''Calculate common mode estimate.
-#     Computationally and I/O expensive.
-#     '''
-
-#     tod_sum = np.zeros(cal_f - slice_i)
-
-#     for kid in kids:
-            
-#         # get the calibrated df for this kid
-#         tod = getCalKidDf(kid, dat_targs, Ff, dat_align_indices, slice_i, cal_f)
-        
-#         # remove astronomical signal estimate
-#         if ast is not None:
-#             tod -= ast
-
-#         # add this tod to summation tod
-#         tod_sum += tod
-            
-#     commonmode = tod_sum/len(kids)
-
-#     return commonmode
-
-
-# # ============================================================================ #
-# # combinedMap
-# def combinedMapLoop(kids, dat_targs, Ff, dat_align_indices):
-#     '''
-#     '''
-
-#     for kid in kids:
-
-#         # get the calibrated df for this kid
-#         tod = getCalKidDf(kid, dat_targs, Ff, dat_align_indices, slice_i, cal_f)
-
-#         # build the binned pixel map
-#         zz  = mlib.buildSingleKIDMap(tod, x, y, x_edges, y_edges)
-
-#         source_coords = sourceCoords(xx, yy, zz) # x_im, y_im
-#         source_coords_all[tod_type][kid] = source_coords
 
 
 
