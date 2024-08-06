@@ -223,7 +223,7 @@ def logLibFuncs(libs):
             # Check if the function has the marker decorator applied
             if hasattr(func, 'logThis') and func.logThis:
                 # Apply the log decorator to the function
-                setattr(lib, name, logFunction()(func))
+                setattr(lib, name, logFunction(func))
 
 
 # ============================================================================ #
