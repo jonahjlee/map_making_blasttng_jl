@@ -136,9 +136,10 @@ def main():
     for iteration in range(10): # currently just doing 10 loops for testing
         # is there a metric to decide when to stop looping?
 
-        # create dir for this iteration
+        # create dir and subdirs for this iteration
         dir_it = os.path.join(dir_out, f'it_{iteration}')
         os.makedirs(dir_it, exist_ok=True)
+        os.makedirs(os.path.join(dir_it, dir_single), exists_ok=True)
 
         # common mode KID loop
         # loop over KIDs, generate common mode
