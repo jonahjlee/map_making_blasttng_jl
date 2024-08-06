@@ -165,6 +165,8 @@ def calcAst(combined_map, az, el, x_edges, y_edges):
 
     print(len(x_edges), len(y_edges))
     print(combined_map.shape)
+    print(min(indices_x), max(indices_x))
+    print(min(indices_y), max(indices_y))
 
     ast = combined_map[indices_x, indices_y]
 
