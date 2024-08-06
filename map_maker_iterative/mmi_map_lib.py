@@ -163,7 +163,10 @@ def calcAst(combined_map, az, el, x_edges, y_edges):
 
     indices_x, indices_y = azelToMapPix(az, el, x_edges, y_edges)
 
-    ast = combined_map[indices_y, indices_x]
+    print(len(x_edges), len(y_edges))
+    print(combined_map.shape)
+
+    ast = combined_map[indices_x, indices_y]
 
     return ast
 
