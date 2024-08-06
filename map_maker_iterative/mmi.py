@@ -115,7 +115,7 @@ def main():
     print(kids)
 
     # remove unused channels
-    kids = [kid for kid in kids if int(kid) >= kid_max]
+    kids = [kid for kid in kids if int(kid) <= kid_max]
 
     # KID rejects
     try: # file might not exist
