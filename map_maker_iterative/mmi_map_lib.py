@@ -189,7 +189,7 @@ def commomModeLoop(kids, dat_targs, Ff, dat_align_indices,
     combined_map: (2D array of floats) Map including all KID data.
     '''
 
-    tod_sum = np.zeros(i_f - i_i)
+    tod_sum = np.zeros(i_cal - i_i)
 
     for kid in kids:
             
@@ -204,8 +204,6 @@ def commomModeLoop(kids, dat_targs, Ff, dat_align_indices,
             tod -= ast
 
         # add this tod to summation tod
-        print(tod_sum.shape)
-        print(tod.shape)
         tod_sum += tod
             
     commonmode = tod_sum/len(kids)
