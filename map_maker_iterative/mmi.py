@@ -56,7 +56,8 @@ def main():
 
     # Log the names and values of all configuration variables
     for var in [var for var in dir() if not var.startswith('__')]:
-        value = globals()[var]
+        combined_scope = {**globals(), **locals()}
+        value = combined_scope[var]
         log.info(f"{var} = {value}")
 
 
