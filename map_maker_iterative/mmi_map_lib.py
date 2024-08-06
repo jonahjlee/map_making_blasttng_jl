@@ -204,6 +204,8 @@ def commomModeLoop(kids, dat_targs, Ff, dat_align_indices,
             tod -= ast
 
         # add this tod to summation tod
+        print(tod_sum.shape)
+        print(tod.shape)
         tod_sum += tod
             
     commonmode = tod_sum/len(kids)

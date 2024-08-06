@@ -165,7 +165,7 @@ def loadKidRejects(file_rejects):
 
 # ============================================================================ #
 # loadKIDData
-@logThis
+# @logThis
 def loadKIDData(roach, kid, dir_roach):
     '''Preps KID I and Q for on-demand loading.
     '''
@@ -180,7 +180,7 @@ def loadKIDData(roach, kid, dir_roach):
 
 # ============================================================================ #
 # getTargSweepIQ
-@logThis
+# @logThis
 def getTargSweepIQ(kid, dat_targs):
     '''Filter roach targs for target sweep for this kid.
     
