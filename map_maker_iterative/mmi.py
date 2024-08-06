@@ -139,7 +139,10 @@ def main():
         # create dir and subdirs for this iteration
         dir_it = os.path.join(dir_out, f'it_{iteration}')
         os.makedirs(dir_it, exist_ok=True)
-        os.makedirs(os.path.join(dir_it, dir_single), exist_ok=True)
+        for new_dir in [dir_single, dir_xform]:
+            os.makedirs(os.path.join(dir_it, new_dir), exist_ok=True)
+        # os.makedirs(os.path.join(dir_it, dir_single), exist_ok=True)
+        # os.makedirs(os.path.join(dir_it, dir_xform), exist_ok=True)
 
         # common mode KID loop
         # loop over KIDs, generate common mode
