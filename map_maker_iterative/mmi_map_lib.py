@@ -296,6 +296,10 @@ def azelToMapPix(az, el, x_edges, y_edges):
     indices_x = np.searchsorted(x_edges, az, side='right') - 1
     indices_y = np.searchsorted(y_edges, el, side='right') - 1
 
+    # Correct the indices if they go out of bounds
+    indices_x = np.clip(indices_x, 0, len(x_edges) - 2)
+    indices_y = np.clip(indices_y, 0, len(y_edges) - 2)
+
     return indices_x, indices_y
 
 
