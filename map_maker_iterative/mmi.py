@@ -112,8 +112,6 @@ def main():
     # kids to use
     kids = dlib.findAllKIDs(dir_roach) # all in dir_roach; sorted
 
-    print(kids)
-
     # remove unused channels
     kids = [kid for kid in kids if int(kid) <= kid_max]
 
@@ -122,8 +120,6 @@ def main():
         kid_rejects = dlib.loadKidRejects(file_rejects)
         kids = [kid for kid in kids if kid not in kid_rejects]
     except: pass
-        
-    print(kids)
 
     # move ref kid so it's processed first
     # this is last so it raises an error if our ref has been removed
