@@ -173,7 +173,7 @@ def calcAst(combined_map, az, el, x_edges, y_edges):
 @logThis
 def commomModeLoop(kids, dat_targs, Ff, dat_align_indices, 
                    roach, dir_roach, i_i, i_cal, i_f, 
-                   az, el, x_edges, y_edges, source_azel, combined_map=None):
+                   az, el, x_edges, y_edges, source_xy, combined_map):
     '''Calculate common mode estimate.
     Computationally and I/O expensive.
 
@@ -199,7 +199,7 @@ def commomModeLoop(kids, dat_targs, Ff, dat_align_indices,
         
         # remove astronomical signal estimate
         if combined_map is not None:
-            Δaz, Δel = source_azel[kid]
+            Δaz, Δel = source_xy[kid]
             ast = calcAst(combined_map, az+Δaz, el+Δel, x_edges, y_edges)
             tod -= ast
 
@@ -385,7 +385,7 @@ def combineMapsLoop(kids, dat_targs, Ff, dat_align_indices,
 
     single_maps = {}
     shifts = {}
-    source_azel = {}
+    source_xy = {}
 
     for kid in kids:
 
@@ -402,7 +402,7 @@ def combineMapsLoop(kids, dat_targs, Ff, dat_align_indices,
 
         # find the source's coords
         xy = sourceCoords(xx, yy, zz) # x_im, y_im
-        source_azel[kid] = xy
+        source_xy[kid] = xy
 
         # find shift required to center source in map
         shift = sourceCoordsToPixShift(xy[0], xy[1], xx, yy)
@@ -415,5 +415,5 @@ def combineMapsLoop(kids, dat_targs, Ff, dat_align_indices,
     # create combined map
     combined_map = combineMaps(kids, single_maps, shifts)
 
-    return combined_map, shifts, source_azel
+    return combined_map, shifts, source_xy
     

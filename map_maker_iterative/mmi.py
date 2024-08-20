@@ -138,6 +138,7 @@ def main():
 # The common-mode iterative refinement loop
 
     combined_map = None
+    source_xy = None
 
     for iteration in range(10): # currently just doing 10 loops for testing
         # is there a metric to decide when to stop looping?
@@ -153,7 +154,7 @@ def main():
         common_mode = mlib.commomModeLoop(
             kids, dat_targs, Ff, dat_align_indices, 
             roach, dir_roach, slice_i, cal_i, cal_f, 
-            x, y, x_edges, y_edges, source_azel, combined_map)
+            x, y, x_edges, y_edges, source_xy, combined_map)
         np.save(os.path.join(dir_it, file_commonmode), common_mode)
 
         # combine maps loop
@@ -161,7 +162,7 @@ def main():
         def save_singles_func(kid, data):
             # we can probably return all single maps and then save here?
             np.save(os.path.join(dir_it, dir_single, f"map_kid_{kid}"), data)
-        combined_map, shifts, source_azel = mlib.combineMapsLoop(
+        combined_map, shifts, source_xy = mlib.combineMapsLoop(
             kids, dat_targs, Ff, dat_align_indices, roach, dir_roach, 
             slice_i, cal_i, cal_f, x, y, x_edges, y_edges, xx, yy, common_mode,
             save_singles_func)
