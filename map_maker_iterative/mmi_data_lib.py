@@ -195,3 +195,61 @@ def getTargSweepIQ(kid, dat_targs):
     Q = dat_targs[:, 2*int(kid)+1]
     
     return I, Q
+
+
+# ============================================================================ #
+# getTargSweepIQ
+@logThis
+def loadArrayLayout():
+    pass
+
+
+"""
+# ============================================================================ #
+# KIDsToUse
+def KIDsToUse(file_layout):
+    '''Load the kids to use from the detector layout file.
+    Note that the KID numbers are strings with leading zero, e.g. '0100'.
+    file_layout: (str) Absolute file name of detector layout file.
+    '''
+
+    # Load layout file CSV
+    data = np.loadtxt(file_layout, skiprows=1, delimiter=',')
+
+    # kids (chans) field
+    kid_vals = data[:,0].astype(int)
+
+    # sort ascending
+    kid_vals_sorted = sorted(kid_vals)
+
+    # convert to 4 digit strings
+    kids = [f"{kid:04}" for kid in kid_vals_sorted]
+
+    return kids
+"""
+
+
+# ============================================================================ #
+# abFromLayout
+def abFromLayout(file_layout):
+    '''Get the a,b coords from the detector layout file.
+    file_layout: (str) Absolute file name of detector layout file.
+    '''
+
+    # Load layout file CSV
+    data = np.loadtxt(file_layout, skiprows=1, delimiter=',')
+
+    # ab = {kid_i: (a_i, b_i)}
+    # ab = {
+    #     f"{int(row[0]):04}": (row[1], row[2])
+    #     for row in sorted(data, key=lambda x: int(x[0]))
+    # }
+
+    # prep the fields
+    kids = [f"{kid:04}" for kid in sorted(data[:,0].astype(int))]
+    a = data[:,1].astype(float)
+    b = data[:,2].astype(float)
+    # convert to dict:
+    ab = {kid: (a[i],b[i]) for i,kid in enumerate(kids)}
+
+    return ab

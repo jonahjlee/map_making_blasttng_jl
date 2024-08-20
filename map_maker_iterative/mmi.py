@@ -71,6 +71,9 @@ def main():
     # load all target sweeps
     dat_targs, Ff = dlib.loadTargSweepsData(dir_targ)
 
+    # load array layout
+    dat_layout = dlib.abFromLayout(file_layout)
+
     # temporaly align tods, rebin if necessary
     dat_aligned, dat_align_indices = dlib.alignMasterAndRoachTods(dat_raw)
 
@@ -88,11 +91,14 @@ def main():
 #  M COORDS
 # Map coordinates and axis arrays
 
-    # source coordinates in az/el telescope frame
-    source_azel = mlib.sourceCoordsAzEl( # source_azel.az, source_azel.el
+    # source coordinates in az/el telescope frame: from detection
+    source_azel = mlib.sourceCoordsAzEl( # (az, el)
         source_name, 
         dat_sliced['lat'], dat_sliced['lon'], 
         dat_sliced['alt'], dat_sliced['time'])
+
+    # source coordinates in az/el telescope frame: from array layout
+    # ab = {kid_i: (a_i, b_i)}
 
     # generate x and y, the az/el offset tods
     x, y = mlib.azElOffsets(source_azel, dat_sliced['az'], dat_sliced['el'])
@@ -141,8 +147,6 @@ def main():
         os.makedirs(dir_it, exist_ok=True)
         for new_dir in [dir_single, dir_xform]:
             os.makedirs(os.path.join(dir_it, new_dir), exist_ok=True)
-        # os.makedirs(os.path.join(dir_it, dir_single), exist_ok=True)
-        # os.makedirs(os.path.join(dir_it, dir_xform), exist_ok=True)
 
         # common mode KID loop
         # loop over KIDs, generate common mode
