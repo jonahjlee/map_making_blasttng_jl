@@ -92,18 +92,11 @@ def main():
 #  M COORDS
 # Map coordinates and axis arrays
 
-    # source coordinates in az/el telescope frame: from detection
+    # detected source coordinates in az/el telescope frame
     source_azel = mlib.sourceCoordsAzEl( # (az, el)
         source_name, 
         dat_sliced['lat'], dat_sliced['lon'], 
         dat_sliced['alt'], dat_sliced['time'])
-
-    # shift coordinates in az/el telescope frame: from array layout
-    ## how do we get source equiz coords in az/el?
-    ## we have detector layout offsets in um
-    ## 
-    # ab = {kid_i: (a_i, b_i)}
-    # source_azel = 
 
     # generate x and y, the az/el offset tods
     x, y = mlib.azElOffsets(source_azel, dat_sliced['az'], dat_sliced['el'])
@@ -131,6 +124,9 @@ def main():
         kid_rejects = dlib.loadKidRejects(file_rejects)
         kids = [kid for kid in kids if kid not in kid_rejects]
     except: pass
+
+    # remove kids not in layout file
+    kids = [kid for kid in kids if kid not in shifts_xy_layout.keys()]
 
     # move ref kid so it's processed first
     # this is last so it raises an error if our ref has been removed

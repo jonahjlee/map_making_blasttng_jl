@@ -140,7 +140,6 @@ def xyFromAb(ab, platescale, pixels_per_beam, psf):
         for kid in ab.keys()
     }
     
-
     return xy
 
 
