@@ -136,9 +136,10 @@ def xyFromAb(ab, platescale, pixels_per_beam, psf):
 
     # apply conversion to ab from layout file
     xy = {
-        kid: (T*ab[kid][0], T*ab[kid][1])
+        f"{int(kid):04}": (T*ab[kid][0], T*ab[kid][1])
         for kid in ab.keys()
     }
+    
 
     return xy
 
