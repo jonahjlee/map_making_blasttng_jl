@@ -36,6 +36,9 @@ slice_i = {1:37125750, 2:0, 3:37141250, 4:0, 5:0}[roach] # RCW 92
 cal_i   = slice_i + 516_000 # cal lamp
 cal_f   = slice_i + 519_000
 
+# common-mode loop iterations
+ct_its = 2
+
 # base data directories
 dir_root   = '/media/player1/blast2020fc1/fc1/'   # control computer
 dir_conv   = dir_root + "converted/"              # control computer

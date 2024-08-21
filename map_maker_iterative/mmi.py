@@ -44,7 +44,8 @@ def main():
     timer = Timer()
 
     # output directory
-    dir_out = genDirsForRun(genTimestamp(), [dir_xform, dir_single])
+    dir_out = makeBaseDir()
+    # makeDirs([dir_xform, dir_single], dir_out)
     print(f"Output is in {dir_out}")
 
     # log file
@@ -55,10 +56,13 @@ def main():
     logLibFuncs([dlib, mlib])
 
     # Log the names and values of all configuration variables
-    for var in [var for var in dir() if not var.startswith('__')]:
-        combined_scope = {**globals(), **locals()}
-        value = combined_scope[var]
-        log.info(f"{var} = {value}")
+    combined_scope = {**globals(), **locals()}
+    for key, value in combined_scope.items():
+        log.info(f"{key} = {value}")
+    # for var in [var for var in dir() if not var.startswith('__')]:
+    #     combined_scope = {**globals(), **locals()}
+    #     value = combined_scope[var]
+    #     log.info(f"{var} = {value}")
 
 
 # ============================================================================ #
@@ -128,8 +132,6 @@ def main():
     # remove kids not in layout file
     kids = [kid for kid in kids if kid in shifts_xy_layout.keys()]
 
-    print(kids)
-
     # move ref kid so it's processed first
     # this is last so it raises an error if our ref has been removed
     kids.remove(kid_ref)
@@ -143,14 +145,15 @@ def main():
     combined_map = None
     source_xy = None
 
-    for iteration in range(10): # currently just doing 10 loops for testing
-        # is there a metric to decide when to stop looping?
+    for iteration in range(ct_its):
 
         # create dir and subdirs for this iteration
         dir_it = os.path.join(dir_out, f'it_{iteration}')
-        os.makedirs(dir_it, exist_ok=True)
-        for new_dir in [dir_single, dir_xform]:
-            os.makedirs(os.path.join(dir_it, new_dir), exist_ok=True)
+        # makeDirs([dir_it])
+        makeDirs([dir_single, dir_xform], dir_it)
+        # os.makedirs(dir_it, exist_ok=True)
+        # for new_dir in [dir_single, dir_xform]:
+        #     os.makedirs(os.path.join(dir_it, new_dir), exist_ok=True)
 
         # common mode KID loop
         # loop over KIDs, generate common mode
@@ -270,21 +273,33 @@ def genLog(log_file, log_dir):
 
 
 # ============================================================================ #
-# genDirsForRun
-def genDirsForRun(suffix, dirs):
-    '''Generate needed directories for this run.
-    
-    suffix: Added to end of base directory created.
+# makeBaseDir
+def makeBaseDir():
+    '''Make base directory for this run.
     '''
     
-    # base directory
-    dir_out = os.path.join(os.getcwd(), f"map_{suffix}")
-    os.makedirs(dir_out)
-    
-    for d in dirs:
-        os.makedirs(os.path.join(dir_out, d), exist_ok=True)
+    # use timestamp as unique dir suffix
+    suffix = genTimestamp()
 
-    return dir_out
+    # base directory
+    dir_base = os.path.join(os.getcwd(), f"map_{suffix}")
+    os.makedirs(dir_base)
+
+    return dir_base
+    
+
+# ============================================================================ #
+# makeDirs
+def makeDirs(dirs, dir_base=None):
+    '''Generate requested directories.
+
+    dir_base: Root folder to create directories in.
+    dirs: List of directory names.
+    '''
+
+    for d in dirs:
+        dir = d if dir_base is None else os.path.join(dir_base, d)
+        os.makedirs(dir, exist_ok=True)
 
 
 
