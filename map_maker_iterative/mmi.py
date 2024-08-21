@@ -45,7 +45,6 @@ def main():
 
     # output directory
     dir_out = makeBaseDir()
-    # makeDirs([dir_xform, dir_single], dir_out)
     print(f"Output is in {dir_out}")
 
     # log file
@@ -60,14 +59,13 @@ def main():
     for key, value in combined_scope.items():
         log.info(f"{key} = {value}")
     # for var in [var for var in dir() if not var.startswith('__')]:
-    #     combined_scope = {**globals(), **locals()}
-    #     value = combined_scope[var]
-    #     log.info(f"{var} = {value}")
 
 
 # ============================================================================ #
 #  M LOAD
 # Load and calibrate data common to all KIDs
+
+    print(f"Loading common data... ", end="")
 
     # load master data 
     dat_raw = dlib.loadMasterData(roach, dir_master, dir_roach)
@@ -91,10 +89,14 @@ def main():
     del(dat_raw, dat_aligned)
     gc.collect()
 
+    print("Done.")
+
 
 # ============================================================================ #
 #  M COORDS
 # Map coordinates and axis arrays
+
+    print(f"Building map base and coordinates... ", end="")
 
     # detected source coordinates in az/el telescope frame
     source_azel = mlib.sourceCoordsAzEl( # (az, el)
@@ -111,11 +113,15 @@ def main():
     # generate map bins and axes
     xx, yy, x_bins, y_bins, x_edges, y_edges = mlib.genMapAxesAndBins(
         x, y, x_bin, y_bin)
+    
+    print("Done.")
 
 
 # ============================================================================ #
 #  M KIDs
 # Determine which KIDs to use
+
+    print(f"Loading KID data... ", end="")
 
     # kids to use
     kids = dlib.findAllKIDs(dir_roach) # all in dir_roach; sorted
@@ -137,15 +143,21 @@ def main():
     kids.remove(kid_ref)
     kids.insert(0, kid_ref)
 
+    print("Done.")
+
 
 # ============================================================================ #
 #  M COM LOOP
 # The common-mode iterative refinement loop
 
+    print(f"Performing common-mode iterations:")
+
     combined_map = None
     source_xy = None
 
     for iteration in range(ct_its):
+
+        print(".", end="")
 
         # create dir and subdirs for this iteration
         dir_it = os.path.join(dir_out, f'it_{iteration}')
@@ -181,6 +193,9 @@ def main():
         # save shifts to file
         file_shifts = os.path.join(dir_it, dir_xform, f'shifts.npy')
         np.save(file_shifts, shifts)
+
+    
+    print(f"Time taken: {timer.deltat()}")
 
 
 
