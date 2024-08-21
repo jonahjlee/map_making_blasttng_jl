@@ -71,8 +71,9 @@ def main():
     # load all target sweeps
     dat_targs, Ff = dlib.loadTargSweepsData(dir_targ)
 
-    # load array layout
+    # load array layout and pre-calculate map shifts from layout
     dat_layout = dlib.abFromLayout(file_layout)
+    shifts_xy_layout = mlib.xyFromAb(dat_layout, platescale, pixels_per_beam, psf)
 
     # temporaly align tods, rebin if necessary
     dat_aligned, dat_align_indices = dlib.alignMasterAndRoachTods(dat_raw)
@@ -97,8 +98,12 @@ def main():
         dat_sliced['lat'], dat_sliced['lon'], 
         dat_sliced['alt'], dat_sliced['time'])
 
-    # source coordinates in az/el telescope frame: from array layout
+    # shift coordinates in az/el telescope frame: from array layout
+    ## how do we get source equiz coords in az/el?
+    ## we have detector layout offsets in um
+    ## 
     # ab = {kid_i: (a_i, b_i)}
+    # source_azel = 
 
     # generate x and y, the az/el offset tods
     x, y = mlib.azElOffsets(source_azel, dat_sliced['az'], dat_sliced['el'])
@@ -165,7 +170,7 @@ def main():
         combined_map, shifts, source_xy = mlib.combineMapsLoop(
             kids, dat_targs, Ff, dat_align_indices, roach, dir_roach, 
             slice_i, cal_i, cal_f, x, y, x_edges, y_edges, xx, yy, common_mode,
-            save_singles_func)
+            save_singles_func, shifts_xy_layout)
 
         # output combined map to file
         if dir_out is not None:

@@ -124,6 +124,26 @@ def offsetsTanProj(x, y, platescale):
 
 
 # ============================================================================ #
+# xyFromAb
+def xyFromAb(ab, platescale, pixels_per_beam, psf):
+    '''Convert ab detector offset coordinates [um] to xy shifts [pix].
+
+    ab = {kid: (a_kid, b_kid)}
+    '''
+    
+    # conversion factor
+    T = platescale*pixels_per_beam/psf
+
+    # apply conversion to ab from layout file
+    xy = {
+        kid: (T*ab[kid][0], T*ab[kid][1])
+        for kid in ab.keys()
+    }
+
+    return xy
+
+
+# ============================================================================ #
 # genMapAxesAndBins
 @logThis
 def genMapAxesAndBins(x, y, x_bin, y_bin):
@@ -363,7 +383,7 @@ def combineMaps(kids, single_maps, shifts):
 def combineMapsLoop(kids, dat_targs, Ff, dat_align_indices, 
                     roach, dir_roach, i_i, i_cal, i_f, 
                     x, y, x_edges, y_edges, xx, yy, common_mode, 
-                    save_singles_func=None):
+                    save_singles_func=None, shifts=None):
     '''Calculate the combined map.
     Computationally and I/O expensive.
 
@@ -381,10 +401,11 @@ def combineMapsLoop(kids, dat_targs, Ff, dat_align_indices,
     xx/yy: (2D array of floats) The image data (meshgrid).
     common_mode: (1D array of floats) The common mode tod.
     save_singles_func: (func) Handles saving out the single maps.
+    shifts: (1D array of floats) Pixel shift to align maps.
     '''
 
     single_maps = {}
-    shifts = {}
+    shifts_source = {}
     source_xy = {}
 
     for kid in kids:
@@ -405,8 +426,10 @@ def combineMapsLoop(kids, dat_targs, Ff, dat_align_indices,
         source_xy[kid] = xy
 
         # find shift required to center source in map
-        shift = sourceCoordsToPixShift(xy[0], xy[1], xx, yy)
-        shifts[kid] = shift
+        shifts_source[kid] = sourceCoordsToPixShift(xy[0], xy[1], xx, yy)
+
+        # use source determined shifts if not given as input
+        shifts = shifts_source if shifts is None else shifts
 
         # output single map to file
         if save_singles_func is not None:
@@ -415,5 +438,5 @@ def combineMapsLoop(kids, dat_targs, Ff, dat_align_indices,
     # create combined map
     combined_map = combineMaps(kids, single_maps, shifts)
 
-    return combined_map, shifts, source_xy
+    return combined_map, shifts_source, source_xy
     
