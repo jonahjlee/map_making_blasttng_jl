@@ -128,6 +128,8 @@ def main():
     # remove kids not in layout file
     kids = [kid for kid in kids if kid not in shifts_xy_layout.keys()]
 
+    print(kids)
+
     # move ref kid so it's processed first
     # this is last so it raises an error if our ref has been removed
     kids.remove(kid_ref)
