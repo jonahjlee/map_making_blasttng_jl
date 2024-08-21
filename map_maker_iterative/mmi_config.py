@@ -15,14 +15,14 @@ maps_to_build = ['DF'] # options: ['A', 'P', 'DF']
 # platescale, band, psf
 platescale = 5.9075e-6 # deg/um = 21.267 arcsec/mm
 band = {1:500, 2:250, 3:350, 4:250, 5:250} # um
-psf = {1:0.0150, 2:0.0075, 3:0.0105, 4:0.0075, 5:0.0075} # deg
+psf = {1:0.0150, 2:0.0075, 3:0.0105, 4:0.0075, 5:0.0075}[roach] # deg/beam
 # arcsec: 54, 27, 38, 27, 27
 # f/# = 3.87953; D=2.33 (w/ lyot stop)
 
 # map pixel bin sizes to use (determines final resolution)
 # beam is 0.01 degrees or 36 arcsec
 pixels_per_beam = 2 # 2 in x and y = 4 pixel sampling of beam
-x_bin = y_bin = psf[roach]/pixels_per_beam/platescale # um
+x_bin = y_bin = psf/pixels_per_beam/platescale # um
 
 # KID to use as the reference for shift table calculations
 kid_ref = {1:'0100', 2:'', 3:'0003', 4:'', 5:''}[roach]
