@@ -150,14 +150,14 @@ def main():
 #  M COM LOOP
 # The common-mode iterative refinement loop
 
-    print(f"Performing {ct_its} common-mode iterations:", end="", flush=True)
+    print(f"Performing {ct_its} common-mode iterations: ", end="", flush=True)
 
     combined_map = None
     source_xy = None
 
     for iteration in range(ct_its):
 
-        print(f"{iteration} ", end="", flush=True)
+        print(f"{iteration+1} ", end="", flush=True)
 
         # create dir and subdirs for this iteration
         dir_it = os.path.join(dir_out, f'it_{iteration}')
