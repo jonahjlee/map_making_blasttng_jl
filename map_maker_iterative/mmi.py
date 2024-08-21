@@ -65,7 +65,7 @@ def main():
 #  M LOAD
 # Load and calibrate data common to all KIDs
 
-    print(f"Loading common data... ", end="")
+    print(f"Loading common data... ", end="", flush=True)
 
     # load master data 
     dat_raw = dlib.loadMasterData(roach, dir_master, dir_roach)
@@ -96,7 +96,7 @@ def main():
 #  M COORDS
 # Map coordinates and axis arrays
 
-    print(f"Building map base and coordinates... ", end="")
+    print(f"Building map base and coordinates... ", end="", flush=True)
 
     # detected source coordinates in az/el telescope frame
     source_azel = mlib.sourceCoordsAzEl( # (az, el)
@@ -121,7 +121,7 @@ def main():
 #  M KIDs
 # Determine which KIDs to use
 
-    print(f"Loading KID data... ", end="")
+    print(f"Loading KID data... ", end="", flush=True)
 
     # kids to use
     kids = dlib.findAllKIDs(dir_roach) # all in dir_roach; sorted
@@ -150,14 +150,14 @@ def main():
 #  M COM LOOP
 # The common-mode iterative refinement loop
 
-    print(f"Performing common-mode iterations:")
+    print(f"Performing {ct_its} common-mode iterations:", end="", flush=True)
 
     combined_map = None
     source_xy = None
 
     for iteration in range(ct_its):
 
-        print(".", end="")
+        print(f"{iteration} ", end="", flush=True)
 
         # create dir and subdirs for this iteration
         dir_it = os.path.join(dir_out, f'it_{iteration}')
@@ -194,7 +194,7 @@ def main():
         file_shifts = os.path.join(dir_it, dir_xform, f'shifts.npy')
         np.save(file_shifts, shifts)
 
-    
+    print("Done.")
     print(f"Time taken: {timer.deltat()}")
 
 
