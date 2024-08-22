@@ -161,11 +161,7 @@ def main():
 
         # create dir and subdirs for this iteration
         dir_it = os.path.join(dir_out, f'it_{iteration}')
-        # makeDirs([dir_it])
         makeDirs([dir_single, dir_xform], dir_it)
-        # os.makedirs(dir_it, exist_ok=True)
-        # for new_dir in [dir_single, dir_xform]:
-        #     os.makedirs(os.path.join(dir_it, new_dir), exist_ok=True)
 
         # common mode KID loop
         # loop over KIDs, generate common mode
@@ -180,7 +176,7 @@ def main():
         def save_singles_func(kid, data):
             # we can probably return all single maps and then save here?
             np.save(os.path.join(dir_it, dir_single, f"map_kid_{kid}"), data)
-        combined_map, shifts, source_xy = mlib.combineMapsLoop(
+        combined_map, shifts_source, source_xy = mlib.combineMapsLoop(
             kids, dat_targs, Ff, dat_align_indices, roach, dir_roach, 
             slice_i, cal_i, cal_f, x, y, x_edges, y_edges, xx, yy, common_mode,
             save_singles_func, shifts_xy_layout)
@@ -191,8 +187,11 @@ def main():
                     [xx, yy, combined_map])
 
         # save shifts to file
-        file_shifts = os.path.join(dir_it, dir_xform, f'shifts.npy')
-        np.save(file_shifts, shifts)
+        np.save(os.path.join(dir_it, dir_xform, f'shifts_source.npy'), 
+                shifts_source)
+        np.save(os.path.join(dir_it, dir_xform, f'shifts_xy_layout.npy'), 
+                shifts_xy_layout)
+        
 
     print("Done.")
     print(f"Time taken: {timer.deltat()}")
