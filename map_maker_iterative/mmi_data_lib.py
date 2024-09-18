@@ -144,6 +144,7 @@ def ds(X, Y):
     ds = 0
     while ds == 0:
         ds = np.sqrt((X[i + 1] - X[i])**2 + (Y[i + 1] - Y[i])**2)
+        i += 1
     
     return ds
 
