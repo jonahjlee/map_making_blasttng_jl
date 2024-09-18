@@ -140,8 +140,8 @@ def samplingFrequency(tod_time):
 def ds(X, Y):
     '''Spatial bin diff.'''
 
-    return np.mean(np.sqrt(np.diff(X)**2 + np.diff(Y)**2))
-    # return np.sqrt((X[1] - X[0])**2 + (Y[1] - Y[0])**2)
+    # return np.mean(np.sqrt(np.diff(X)**2 + np.diff(Y)**2))
+    return np.sqrt((X[1] - X[0])**2 + (Y[1] - Y[0])**2)
 
 
 # ============================================================================ #
