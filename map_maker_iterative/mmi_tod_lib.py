@@ -18,6 +18,7 @@ import mmi_data_lib as dlib
 
 # ============================================================================ #
 # df_IQangle
+"""
 def df_IQangle(I, Q, If, Qf, Ff, i_f0=None):
     '''Calculate df using IQ Angle Method.
     
@@ -84,6 +85,28 @@ def df_IQangle(I, Q, If, Qf, Ff, i_f0=None):
     df = np.interp(θ, θf, Ff - f0) # using df from resonance
     
     return df/f0
+"""
+
+
+# ============================================================================ #
+# df_IQangle (gradient method)
+def df_IQangle(I, Q, If, Qf, Ff, i_f0=None): 
+    dIfdf = np.diff(If)/1e3        # Δx is const. so Δy=dI/df
+    dQfdf = np.diff(Qf)/1e3        # /1e3 for units
+    dIfdff0 = dIfdf[len(dIfdf)//2] # dI(f)/df at f0
+    dQfdff0 = dQfdf[len(dQfdf)//2] # assume f0 is centre index
+    I_n = I - np.mean(I)           # centre values on 0
+    Q_n = Q - np.mean(Q)           #
+    
+    den = dIfdff0**2 + dQfdff0**2  # 
+    
+    numx = ((I_n*dIfdff0 + Q_n*dQfdff0))
+    Δfx = numx/den
+    
+    # numy = ((Q_n*dIfdff0 - I_n*dQfdff0))
+    # Δfy = numy/den
+    
+    return Δfx/Ff[len(dQfdf)//2]
 
 
 # ============================================================================ #
