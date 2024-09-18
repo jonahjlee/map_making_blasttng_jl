@@ -131,6 +131,8 @@ def samplingFrequency(tod_time):
 
     dt = tod_time[1] - tod_time[0]
 
+    print(tod_time[1], tod_time[0], dt)
+
     return 1/dt
 
 
