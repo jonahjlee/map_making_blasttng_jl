@@ -129,6 +129,8 @@ def alignMasterAndRoachTods(dat_raw):
 def samplingFrequency(tod_time):
     '''Calculate fs assuming constant.'''
 
+    print(tod_time[:100])
+
     # dt = tod_time[1] - tod_time[0]
     dt = np.mean(np.diff(tod_time))
 
