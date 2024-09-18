@@ -11,7 +11,8 @@
 import sys
 import warnings
 import numpy as np
-from scipy.fft import rfft, irfft, rfftfreq
+# from scipy.fft import rfft, irfft, rfftfreq
+import scipy as sp
 
 import mmi_data_lib as dlib
 
@@ -258,9 +259,11 @@ def highpassFilterTOD(tod, sampling_rate, cutoff_freq):
     - filtered_tod: numpy array, the filtered time-ordered data.
     """
 
+    print(sampling_rate, cutoff_freq)
+
     # FFT of the TOD
-    tod_fft = rfft(tod)
-    freqs = rfftfreq(len(tod), d=1/sampling_rate)
+    tod_fft = sp.fft.rfft(tod)
+    freqs = sp.fft.rfftfreq(len(tod), d=1/sampling_rate)
 
     # Create a high-pass filter mask
     filter_mask = freqs > cutoff_freq
@@ -269,6 +272,6 @@ def highpassFilterTOD(tod, sampling_rate, cutoff_freq):
     tod_fft_filtered = tod_fft * filter_mask
 
     # Inverse FFT to get back to time domain
-    filtered_tod = irfft(tod_fft_filtered)
+    filtered_tod = sp.fft.rfft(tod_fft_filtered)
 
     return filtered_tod
