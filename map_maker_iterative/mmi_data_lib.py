@@ -129,9 +129,8 @@ def alignMasterAndRoachTods(dat_raw):
 def samplingFrequency(tod_time):
     '''Calculate fs assuming constant.'''
 
-    dt = tod_time[1] - tod_time[0]
-
-    print(tod_time[1], tod_time[0], dt)
+    # dt = tod_time[1] - tod_time[0]
+    dt = np.mean(np.diff(tod_time))
 
     return 1/dt
 
@@ -141,7 +140,10 @@ def samplingFrequency(tod_time):
 def ds(X, Y):
     '''Spatial bin diff.'''
 
-    return np.sqrt((X[1] - X[0])**2 + (Y[1] - Y[0])**2)
+    np.diff(X)
+    np.diff(Y)
+    return np.mean(np.sqrt(X**2 + Y**2))
+    # return np.sqrt((X[1] - X[0])**2 + (Y[1] - Y[0])**2)
 
 
 # ============================================================================ #
