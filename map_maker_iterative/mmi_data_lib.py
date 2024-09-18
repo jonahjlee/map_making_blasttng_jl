@@ -125,6 +125,24 @@ def alignMasterAndRoachTods(dat_raw):
 
 
 # ============================================================================ #
+# samplingFrequency
+def samplingFrequency(tod_time):
+    '''Calculate fs assuming constant.'''
+
+    dt = tod_time[1] - tod_time[0]
+
+    return 1/dt
+
+
+# ============================================================================ #
+# ds
+def ds(X, Y):
+    '''Spatial bin diff.'''
+
+    return np.sqrt((X[1] - X[0])**2 + (Y[1] - Y[0])**2)
+
+
+# ============================================================================ #
 # findAllKIDs
 @logThis
 def findAllKIDs(directory):
@@ -197,13 +215,6 @@ def getTargSweepIQ(kid, dat_targs):
     return I, Q
 
 
-# ============================================================================ #
-# getTargSweepIQ
-@logThis
-def loadArrayLayout():
-    pass
-
-
 """
 # ============================================================================ #
 # KIDsToUse
@@ -234,6 +245,8 @@ def KIDsToUse(file_layout):
 def abFromLayout(file_layout):
     '''Get the a,b coords from the detector layout file.
     file_layout: (str) Absolute file name of detector layout file.
+    ab coordinates are micron offsets from geometric center of array.
+    Use platescale to convert to on-sky coords.
     '''
 
     # Load layout file CSV

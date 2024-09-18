@@ -39,6 +39,9 @@ cal_f   = slice_i + 519_000
 # common-mode loop iterations
 ct_its = 2
 
+# high pass filter cutoff frequency, in spatial scale
+fc_high_scale = 20*psf # deg
+
 # base data directories
 dir_root   = '/media/player1/blast2020fc1/fc1/'   # control computer
 dir_conv   = dir_root + "converted/"              # control computer

@@ -189,11 +189,30 @@ def calcAst(combined_map, az, el, x_edges, y_edges):
 
 
 # ============================================================================ #
+# cutoffFrequency
+def cutoffFrequency(scale, dt, ds):
+    '''Cutoff frequency from spatial scale.
+    scale: (float) Spatial scale cutoff [on-sky distance, e.g. deg]
+    tod_time: (1D array of floats) Time timestream [time unit, e.g. s].
+    tod_space: (1D array of floats) Pointing timestream [same on-sky distance unit as scale].
+    '''
+
+    # angular velocity of telescope [e.g. deg/s]
+    v = ds/dt
+
+    # cutoff frequency [e.g. Hz]
+    fc = v/scale
+
+    return fc
+
+
+# ============================================================================ #
 # commomMode
 @logThis
 def commomModeLoop(kids, dat_targs, Ff, dat_align_indices, 
                    roach, dir_roach, i_i, i_cal, i_f, 
-                   az, el, x_edges, y_edges, source_xy, combined_map):
+                   az, el, x_edges, y_edges, source_xy, combined_map,
+                   fs_tod, fc_high):
     '''Calculate common mode estimate.
     Computationally and I/O expensive.
 
@@ -207,16 +226,24 @@ def commomModeLoop(kids, dat_targs, Ff, dat_align_indices,
     i_cal: (int) First index of calibration lamp data.
     i_f: (int) Final index.
     combined_map: (2D array of floats) Map including all KID data.
+    fs_tod: (float) Sampling frequency for tod.
+    fc_high: (float) Cutoff frequency for high pass filter.
     '''
 
     tod_sum = np.zeros(i_cal - i_i)
 
     for kid in kids:
             
-        # get the calibrated df for this kid
-        tod = tlib.getCalKidDf(kid, dat_targs, Ff, dat_align_indices, 
+        # get the normalized df for this kid
+        tod = tlib.getNormKidDf(kid, dat_targs, Ff, dat_align_indices, 
                           roach, dir_roach, i_i, i_cal, i_f)
         
+        # clean the df tod
+        tod = tlib.cleanTOD(tod)
+
+        # high-pass filter
+        tod = tlib.highpassFilterTOD(tod, fs_tod, fc_high)
+
         # remove astronomical signal estimate
         if combined_map is not None:
             Δaz, Δel = source_xy[kid]
@@ -383,6 +410,7 @@ def combineMaps(kids, single_maps, shifts):
 def combineMapsLoop(kids, dat_targs, Ff, dat_align_indices, 
                     roach, dir_roach, i_i, i_cal, i_f, 
                     x, y, x_edges, y_edges, xx, yy, common_mode, 
+                    fs_tod, fc_high,
                     save_singles_func=None, shifts=None):
     '''Calculate the combined map.
     Computationally and I/O expensive.
@@ -400,6 +428,8 @@ def combineMapsLoop(kids, dat_targs, Ff, dat_align_indices,
     x_edges/y_edges: (1D array of floats) The map bin edges.
     xx/yy: (2D array of floats) The image data (meshgrid).
     common_mode: (1D array of floats) The common mode tod.
+    fs_tod: (float) Sampling frequency for tod.
+    fc_high: (float) Cutoff frequency for high pass filter.
     save_singles_func: (func) Handles saving out the single maps.
     shifts: (1D array of floats) Pixel shift to align maps.
     '''
@@ -410,13 +440,19 @@ def combineMapsLoop(kids, dat_targs, Ff, dat_align_indices,
 
     for kid in kids:
 
-        # get the calibrated df for this kid
-        tod = tlib.getCalKidDf(kid, dat_targs, Ff, dat_align_indices, 
+        # get the normalized df for this kid
+        tod = tlib.getNormKidDf(kid, dat_targs, Ff, dat_align_indices, 
                           roach, dir_roach, i_i, i_cal, i_f)
         
+        # clean the df tod
+        tod = tlib.cleanTOD(tod)
+
         # remove common mode
         tod -= common_mode
 
+        # high-pass filter
+        tod = tlib.highpassFilterTOD(tod, fs_tod, fc_high)
+        
         # build the binned pixel map
         zz  = buildSingleKIDMap(tod, x, y, x_edges, y_edges)
         single_maps[kid] = zz

@@ -80,6 +80,15 @@ def main():
     # temporaly align tods, rebin if necessary
     dat_aligned, dat_align_indices = dlib.alignMasterAndRoachTods(dat_raw)
 
+    # calculate sampling frequency
+    fs_tod = dlib.samplingFrequency(dat_aligned['time'])
+
+    # calculate spatial bin diff.
+    ds_tod = dlib.ds(dat_aligned['az'], dat_aligned['el'])
+    
+    # high pass filter cutoff frequency
+    fc_high = mlib.cutoffFrequency(fc_high_scale, 1/fs_tod, ds_tod)
+
     # slice tods to desired region (remove cal lamp)
     dat_sliced = {
         field: dat_aligned[field][slice_i:cal_i].copy() 
@@ -168,7 +177,8 @@ def main():
         common_mode = mlib.commomModeLoop(
             kids, dat_targs, Ff, dat_align_indices, 
             roach, dir_roach, slice_i, cal_i, cal_f, 
-            x, y, x_edges, y_edges, source_xy, combined_map)
+            x, y, x_edges, y_edges, source_xy, combined_map,
+            fs_tod, fc_high)
         np.save(os.path.join(dir_it, file_commonmode), common_mode)
 
         # combine maps loop
@@ -179,7 +189,7 @@ def main():
         combined_map, shifts_source, source_xy = mlib.combineMapsLoop(
             kids, dat_targs, Ff, dat_align_indices, roach, dir_roach, 
             slice_i, cal_i, cal_f, x, y, x_edges, y_edges, xx, yy, common_mode,
-            save_singles_func, shifts_xy_layout)
+            fs_tod, fc_high, save_singles_func, shifts_xy_layout)
 
         # output combined map to file
         if dir_out is not None:
