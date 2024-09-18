@@ -133,8 +133,14 @@ def samplingFrequency(tod_time):
     # print(np.diff(tod_time))
 
     # dt = tod_time[1] - tod_time[0]
-    dt = np.nanmean(np.diff(tod_time))
+    # dt = np.nanmean(np.diff(tod_time))
 
+    i = 0
+    dt = 0
+    while dt == 0:
+        dt = tod_time[i + 1] - tod_time[i]
+        i += 1
+    
     return 1/dt
 
 
