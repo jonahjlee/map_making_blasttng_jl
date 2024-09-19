@@ -195,7 +195,9 @@ def main():
         combined_map, shifts_source, source_xy = mlib.combineMapsLoop(
             kids, dat_targs, Ff, dat_align_indices, roach, dir_roach, 
             slice_i, cal_i, cal_f, x, y, x_edges, y_edges, xx, yy, common_mode,
-            fs_tod, fc_high, save_singles_func, shifts_xy_layout)
+            fs_tod, fc_high, save_singles_func, 
+            None)
+            # shifts_xy_layout)
 
         # output combined map to file
         if dir_out is not None:
