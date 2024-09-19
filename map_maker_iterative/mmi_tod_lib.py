@@ -18,7 +18,8 @@ import mmi_data_lib as dlib
 
 
 # ============================================================================ #
-# df_IQangle
+# df_IQangle (updated for sub-loops)
+"""
 def df_IQangle(I, Q, If, Qf, Ff, i_f0=None):
     '''Calculate df using IQ Angle Method.
     
@@ -85,6 +86,42 @@ def df_IQangle(I, Q, If, Qf, Ff, i_f0=None):
     df = np.interp(θ, θf, Ff - f0) # using df from resonance
     
     return df/f0
+"""
+
+
+# ============================================================================ #
+# df_IQangle
+def df_IQangle(I, Q, If, Qf, Ff, i_f0=None):
+    '''Calculate df using IQ Angle Method.
+    
+    I: (1D array of floats) Timestream S21 real component.
+    Q: (1D array of floats) Timestream S21 imaginary component.
+    If: (1D array of floats) Target sweep S21 real component.
+    Qf: (1D array of floats) Target sweep S21 imaginary component.
+    Ff: (1D array of floats) Target sweep S21 frequency axis.
+    '''
+    
+    if i_f0 is None:                        # resonant frequency index
+        i_f0 = np.argmin(np.abs(If + 1j*Qf)) 
+    
+    cI = (If.max() + If.min())/2            # centre of target IQ loop
+    cQ = (Qf.max() + Qf.min())/2
+    
+    # target sweep
+    If_c, Qf_c = If - cI, Qf - cQ           # shift center to origin
+    θf = np.arctan2(Qf_c, If_c)             # find IQ angles
+    
+    # observations
+    I_c, Q_c = I - cI, Q - cQ               # shift origin
+    θ = np.arctan2(Q_c, I_c)                # find IQ angles
+    
+    # adjust frequencies for delta from f0
+    Ff0 = Ff - Ff[i_f0]                     # center Ff on f0
+    
+    # interpolate
+    df = np.interp(θ, θf, Ff0, period=2*np.pi)
+    
+    return df/Ff[i_f0]
 
 
 # ============================================================================ #
