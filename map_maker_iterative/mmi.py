@@ -82,18 +82,18 @@ def main():
 
     # calculate sampling frequency
     fs_tod = dlib.samplingFrequency(dat_aligned['time'])
-    print(f"fs_tod={fs_tod}")
 
     # calculate spatial bin diff.
     ds_tod = dlib.ds(dat_aligned['az'], dat_aligned['el'])
-    print(f"ds_tod={ds_tod}")
     
     # high pass filter cutoff frequency
     fc_high = mlib.cutoffFrequency(fc_high_scale, 1/fs_tod, ds_tod)
-    print(f"fc_high_scale={fc_high_scale}")
-    print(f"fc_high={fc_high}")
 
-    exit()
+    # print(f"fs_tod={fs_tod}")
+    # print(f"ds_tod={ds_tod}")
+    # print(f"fc_high_scale={fc_high_scale}")
+    # print(f"fc_high={fc_high}")
+    # exit()
 
     # slice tods to desired region (remove cal lamp)
     dat_sliced = {
