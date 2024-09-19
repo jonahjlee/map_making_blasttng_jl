@@ -19,7 +19,7 @@ import mmi_data_lib as dlib
 
 # ============================================================================ #
 # df_IQangle (updated for sub-loops)
-# """
+"""
 def df_IQangle(I, Q, If, Qf, Ff, i_f0=None):
     '''Calculate df using IQ Angle Method.
     
@@ -86,12 +86,12 @@ def df_IQangle(I, Q, If, Qf, Ff, i_f0=None):
     df = np.interp(θ, θf, Ff - f0) # using df from resonance
     
     return df/f0
-# """
+"""
 
 
 # ============================================================================ #
 # df_IQangle
-"""
+# """
 def df_IQangle(I, Q, If, Qf, Ff, i_f0=None):
     '''Calculate df using IQ Angle Method.
     
@@ -123,7 +123,7 @@ def df_IQangle(I, Q, If, Qf, Ff, i_f0=None):
     df = np.interp(θ, θf, Ff0, period=2*np.pi)
     
     return df/Ff[i_f0]
-"""
+# """
 
 
 # ============================================================================ #
