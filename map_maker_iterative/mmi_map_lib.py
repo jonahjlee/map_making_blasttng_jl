@@ -242,7 +242,7 @@ def commomModeLoop(kids, dat_targs, Ff, dat_align_indices,
         tod = tlib.cleanTOD(tod)
 
         # high-pass filter
-        # tod = tlib.highpassFilterTOD(tod, fs_tod, fc_high)
+        tod = tlib.highpassFilterTOD(tod, fs_tod, fc_high)
 
         # remove astronomical signal estimate
         if combined_map is not None:
@@ -451,7 +451,7 @@ def combineMapsLoop(kids, dat_targs, Ff, dat_align_indices,
         tod -= common_mode
 
         # high-pass filter
-        # tod = tlib.highpassFilterTOD(tod, fs_tod, fc_high)
+        tod = tlib.highpassFilterTOD(tod, fs_tod, fc_high)
         
         # build the binned pixel map
         zz  = buildSingleKIDMap(tod, x, y, x_edges, y_edges)
