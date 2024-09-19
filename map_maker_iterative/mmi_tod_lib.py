@@ -259,8 +259,6 @@ def highpassFilterTOD(tod, sampling_rate, cutoff_freq):
     - filtered_tod: numpy array, the filtered time-ordered data.
     """
 
-    print(sampling_rate, cutoff_freq)
-
     # FFT of the TOD
     tod_fft = sp.fft.rfft(tod)
     freqs = sp.fft.rfftfreq(len(tod), d=1/sampling_rate)
@@ -272,6 +270,6 @@ def highpassFilterTOD(tod, sampling_rate, cutoff_freq):
     tod_fft_filtered = tod_fft * filter_mask
 
     # Inverse FFT to get back to time domain
-    filtered_tod = sp.fft.rfft(tod_fft_filtered)
+    filtered_tod = sp.fft.irfft(tod_fft_filtered)
 
     return filtered_tod
