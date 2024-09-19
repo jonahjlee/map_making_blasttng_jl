@@ -37,7 +37,7 @@ cal_i   = slice_i + 516_000 # cal lamp
 cal_f   = slice_i + 519_000
 
 # common-mode loop iterations
-ct_its = 10
+ct_its = 2
 
 # high pass filter cutoff frequency, in spatial scale
 fc_high_scale = 20*psf # deg
