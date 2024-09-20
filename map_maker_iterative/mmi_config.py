@@ -40,7 +40,8 @@ cal_f   = slice_i + 519_000
 ct_its = 2
 
 # high pass filter cutoff frequency, in spatial scale
-fc_high_scale = 20*psf # deg
+fc_high_scale = 10*psf # deg
+print(f"fc_high_scale={fc_high_scale}")
 
 # base data directories
 dir_root   = '/media/player1/blast2020fc1/fc1/'   # control computer
