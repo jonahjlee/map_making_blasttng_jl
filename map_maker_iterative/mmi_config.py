@@ -40,7 +40,7 @@ cal_f   = slice_i + 519_000
 ct_its = 2
 
 # high pass filter cutoff frequency, in spatial scale
-fc_high_scale = 5*psf # deg
+fc_high_scale = 2.5*psf # deg
 print(f"fc_high_scale={fc_high_scale}")
 
 # base data directories
