@@ -239,10 +239,10 @@ def commomModeLoop(kids, dat_targs, Ff, dat_align_indices,
                           roach, dir_roach, i_i, i_cal, i_f)
         
         # clean the df tod
-        tod = tlib.cleanTOD(tod)
+        # tod = tlib.cleanTOD(tod)
 
         # high-pass filter
-        tod = tlib.highpassFilterTOD(tod, fs_tod, fc_high)
+        # tod = tlib.highpassFilterTOD(tod, fs_tod, fc_high)
 
         # remove astronomical signal estimate
         if combined_map is not None:
