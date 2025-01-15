@@ -119,15 +119,15 @@ def main():
         dat_sliced['lat'], dat_sliced['lon'], 
         dat_sliced['alt'], dat_sliced['time'])
 
-    # generate x and y, the az/el offset tods
-    x, y = mlib.azElOffsets(source_azel, dat_sliced['az'], dat_sliced['el'])
+    # generate x_az and y_el, the az/el offset tods
+    x_az, y_el = mlib.azElOffsets(source_azel, dat_sliced['az'], dat_sliced['el'])
 
     # convert offsets in degrees to um on image plane
-    x, y = mlib.offsetsTanProj(x, y, platescale)
+    x_um, y_um = mlib.offsetsTanProj(x_az, y_el, platescale)
 
     # generate map bins and axes
     xx, yy, x_bins, y_bins, x_edges, y_edges = mlib.genMapAxesAndBins(
-        x, y, x_bin, y_bin)
+        x_um, y_um, x_bin, y_bin)
     
     print("Done.")
 
@@ -183,7 +183,7 @@ def main():
         common_mode = mlib.commomModeLoop(
             kids, dat_targs, Ff, dat_align_indices, 
             roach, dir_roach, slice_i, cal_i, cal_f, 
-            x, y, x_edges, y_edges, source_xy, combined_map,
+            x_um, y_um, x_edges, y_edges, source_xy, combined_map,
             fs_tod, fc_high)
         np.save(os.path.join(dir_it, file_commonmode), common_mode)
 
@@ -194,7 +194,7 @@ def main():
             np.save(os.path.join(dir_it, dir_single, f"map_kid_{kid}"), data)
         combined_map, shifts_source, source_xy = mlib.combineMapsLoop(
             kids, dat_targs, Ff, dat_align_indices, roach, dir_roach, 
-            slice_i, cal_i, cal_f, x, y, x_edges, y_edges, xx, yy, common_mode,
+            slice_i, cal_i, cal_f, x_um, y_um, x_edges, y_edges, xx, yy, common_mode,
             fs_tod, fc_high, save_singles_func, 
             None)
             # shifts_xy_layout)
