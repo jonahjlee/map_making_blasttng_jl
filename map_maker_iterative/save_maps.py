@@ -38,7 +38,7 @@ if __name__ == "__main__":
     # ===== determine best defaults ===== #
 
     if args.map_dir is None:
-        dirs = [directory for directory in os.listdir(".")
+        dirs = [directory for directory in os.listdir("..")
                 if os.path.isdir(directory) and directory.startswith('map_') and directory not in ignore_directories]
         latest_ctime = max(dirs, key=os.path.getctime)
         map_dir = latest_ctime
