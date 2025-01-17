@@ -159,41 +159,7 @@ def main():
 
     print("Done.")
 
-    import matplotlib.pyplot as plt
-    import inspect
-
-    def plot_variables_in_scope():
-        # Create output folder if it doesn't exist
-        output_folder = os.path.join(dir_out, "debug_plots")
-        if not os.path.exists(output_folder):
-            os.makedirs(output_folder)
-
-        # Get current local and global variables
-        current_frame = inspect.currentframe()
-        local_vars = current_frame.f_locals
-        global_vars = current_frame.f_globals
-
-        # Combine local and global variables
-        all_vars = {**local_vars, **global_vars}
-
-        # Loop over variables in the combined scope
-        for var_name, var_value in all_vars.items():
-            # Check if variable is a list or ndarray
-            if isinstance(var_value, (list, np.ndarray)):
-                # Create the plot
-                plt.figure()
-                plt.plot(var_value)
-                plt.title(f'Plot of {var_name}')
-                plt.xlabel('Index')
-                plt.ylabel('Value')
-
-                # Save the plot to the output folder
-                plot_path = os.path.join(output_folder, f'{var_name}.png')
-                plt.savefig(plot_path)
-                plt.show()  # This will display the plot
-                plt.close()
-
-    plot_variables_in_scope()
+    breakpoint()
 
 # ============================================================================ #
 #  M COM LOOP
