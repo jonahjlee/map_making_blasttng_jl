@@ -8,7 +8,7 @@
 # ============================================================================ #
 
 
-roach = 1
+roach = 2
 
 maps_to_build = ['DF'] # options: ['A', 'P', 'DF']
 
@@ -37,7 +37,7 @@ cal_i   = slice_i + 516_000 # cal lamp
 cal_f   = slice_i + 519_000
 
 # common-mode loop iterations
-ct_its = 10
+ct_its = 2
 
 # high pass filter cutoff frequency, in spatial scale
 fc_high_scale = 40*psf # deg
@@ -74,7 +74,7 @@ elif roach == 5:
     dir_targ    += 'Tue_Jan__7_00_55_51_2020/'
 
 # detector layout file
-file_layout = dir_root + f'map_making/detector_layouts/layout_roach{roach}.csv'
+# file_layout = dir_root + f'map_making/detector_layouts/layout_roach{roach}.csv'
 
 # KID rejects list
 file_rejects = dir_root + f'map_making/kid_rejects/kid_rejects_roach{roach}.dat'

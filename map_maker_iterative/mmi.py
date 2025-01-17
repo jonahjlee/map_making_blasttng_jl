@@ -74,8 +74,8 @@ def main():
     dat_targs, Ff = dlib.loadTargSweepsData(dir_targ)
 
     # load array layout and pre-calculate map shifts from layout
-    dat_layout = dlib.abFromLayout(file_layout)
-    shifts_xy_layout = mlib.xyFromAb(dat_layout, platescale, pixels_per_beam, psf)
+    # dat_layout = dlib.abFromLayout(file_layout)
+    # shifts_xy_layout = mlib.xyFromAb(dat_layout, platescale, pixels_per_beam, psf)
 
     # temporaly align tods, rebin if necessary
     dat_aligned, dat_align_indices = dlib.alignMasterAndRoachTods(dat_raw)
@@ -151,7 +151,7 @@ def main():
     except: pass
 
     # remove kids not in layout file
-    kids = [kid for kid in kids if kid in shifts_xy_layout.keys()]
+    # kids = [kid for kid in kids if kid in shifts_xy_layout.keys()]
 
     # move ref kid so it's processed first
     # this is last so it raises an error if our ref has been removed
@@ -207,8 +207,8 @@ def main():
         # save shifts to file
         np.save(os.path.join(dir_it, dir_xform, f'shifts_source.npy'), 
                 shifts_source)
-        np.save(os.path.join(dir_it, dir_xform, f'shifts_xy_layout.npy'), 
-                shifts_xy_layout)
+        # np.save(os.path.join(dir_it, dir_xform, f'shifts_xy_layout.npy'),
+        #         shifts_xy_layout)
         
 
     print("Done.")
