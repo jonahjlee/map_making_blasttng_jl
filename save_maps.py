@@ -60,6 +60,8 @@ if __name__ == "__main__":
     blasttng_y_offset_um = blasttng_map[1]  # um offset (y) on sensor
     blasttng_df = blasttng_map[2]  # signal strength, df
 
+    # ===== plot and save results ===== #
+
     norm = colors.SymLogNorm(linthresh=0.01)
 
     plt.imshow(blasttng_df + args.offset, cmap='viridis')
@@ -69,7 +71,6 @@ if __name__ == "__main__":
     plt.savefig(os.path.join(map_dir, lin_map_name))
     print(f'Saved map {lin_map_name} to folder {map_dir}')
     plt.close()
-
 
     plt.imshow(blasttng_df + args.offset, norm=norm, cmap='viridis')
     plt.colorbar(label='DF')
