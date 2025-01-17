@@ -21,7 +21,6 @@ from mmi_config import *
 import mmi_data_lib as dlib
 # import mmi_tod_lib as tlib
 import mmi_map_lib as mlib
-from tmp import plot_variables_in_scope
 
 
 # ============================================================================ #
