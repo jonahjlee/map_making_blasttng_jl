@@ -32,7 +32,7 @@ if __name__ == "__main__":
                         default=0, type=float)
     parser.add_argument("-l", "--linthresh",
                         help="Linear threshold for symmetric logarithmic scaling.",
-                        default=0, type=float)
+                        default=0.01, type=float)
     args = parser.parse_args()
 
     # ===== determine best defaults ===== #
@@ -62,7 +62,7 @@ if __name__ == "__main__":
 
     # ===== plot and save results ===== #
 
-    norm = colors.SymLogNorm(linthresh=0.01)
+    norm = colors.SymLogNorm(linthresh=args.linthresh)
 
     plt.imshow(blasttng_df + args.offset, cmap='viridis')
     plt.colorbar(label='DF')
