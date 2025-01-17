@@ -25,7 +25,7 @@ pixels_per_beam = 2 # 2 in x and y = 4 pixel sampling of beam
 x_bin = y_bin = psf/pixels_per_beam/platescale # um
 
 # KID to use as the reference for shift table calculations
-kid_ref = {1:'0100', 2:'', 3:'0003', 4:'', 5:''}[roach]
+kid_ref = {1:'0100', 2:'0001', 3:'0003', 4:'', 5:''}[roach]
 
 # source name for SkyCoord
 source_name = 'RCW 92'
@@ -77,7 +77,7 @@ elif roach == 5:
 # file_layout = dir_root + f'map_making/detector_layouts/layout_roach{roach}.csv'
 
 # KID rejects list
-file_rejects = dir_root + f'map_making/kid_rejects/kid_rejects_roach{roach}.dat'
+# file_rejects = dir_root + f'map_making/kid_rejects/kid_rejects_roach{roach}.dat'
 
 # common-mode file
 file_commonmode = f'common_mode_roach{roach}.dat'
