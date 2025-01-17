@@ -65,11 +65,16 @@ if __name__ == "__main__":
     plt.imshow(blasttng_df + args.offset, cmap='viridis')
     plt.colorbar(label='DF')
     plt.title(f"combined map, it_{iter_num}.\nBuilt from folder: {map_dir}")
-    plt.savefig(os.path.join(map_dir, f'it_{iter_num}_combined_map.png'))
+    lin_map_name = f'it_{iter_num}_combined_map.png'
+    plt.savefig(os.path.join(map_dir, lin_map_name))
+    print(f'Saved map {lin_map_name} to folder {map_dir}')
     plt.close()
+
 
     plt.imshow(blasttng_df + args.offset, norm=norm, cmap='viridis')
     plt.colorbar(label='DF')
     plt.title(f"combined map, it_{iter_num}, log scale.\nBuilt from folder: {map_dir}")
-    plt.savefig(os.path.join(map_dir, f'it_{iter_num}_combined_map_log.png'))
+    log_map_name = f'it_{iter_num}_combined_map_log.png'
+    plt.savefig(os.path.join(map_dir, log_map_name))
+    print(f'Saved map {log_map_name} to folder {map_dir}')
     plt.close()
