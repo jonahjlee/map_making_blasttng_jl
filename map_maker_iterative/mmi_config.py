@@ -32,7 +32,7 @@ source_name = 'RCW 92'
 
 # data indices
 # scan of object RCW 92
-slice_i = {1:37125750, 2:0, 3:37141250, 4:0, 5:0}[roach] # RCW 92
+slice_i = {1:37125750, 2:37125750, 3:37141250, 4:0, 5:0}[roach] # RCW 92
 cal_i   = slice_i + 516_000 # cal lamp
 cal_f   = slice_i + 519_000
 
