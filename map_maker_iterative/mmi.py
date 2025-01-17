@@ -141,7 +141,7 @@ def main():
     kids = dlib.findAllKIDs(dir_roach) # all in dir_roach; sorted
 
     # remove unused channels
-    kids = [kid for kid in kids if int(kid) <= kid_max]
+    kids = [kid for kid in kids if int(kid) < kid_max]
 
     # KID rejects
     # try: # file might not exist
