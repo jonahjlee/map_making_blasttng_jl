@@ -471,6 +471,8 @@ def combineMapsLoop(kids, dat_targs, Ff, dat_align_indices,
         if save_singles_func is not None:
             save_singles_func(kid, np.array([xx, yy, zz]))
 
+    import pdb; pdb.set_trace()
+
     # create combined map
     combined_map = combineMaps(kids, single_maps, shifts)
 
