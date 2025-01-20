@@ -95,6 +95,8 @@ def main():
     # print(f"fc_high={fc_high}")
     # exit()
 
+    pdb.set_trace()
+
     dat_aligned['ra'], dat_aligned['dec'] = mlib.getRaDec(
         dat_aligned['az'],
         dat_aligned['el'],
