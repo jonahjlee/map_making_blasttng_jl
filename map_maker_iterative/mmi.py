@@ -100,13 +100,13 @@ def main():
     del dat_raw
     gc.collect()
 
-    dat_aligned['ra'], dat_aligned['dec'] = mlib.getRaDec(
-        dat_aligned['az'],
-        dat_aligned['el'],
-        dat_aligned['lat'],
-        dat_aligned['lon'],
-        dat_aligned['alt'],
-        dat_aligned['time'])
+    ra, dec = mlib.getRaDec(
+        dat_aligned['az'][::10],
+        dat_aligned['el'][::10],
+        dat_aligned['lat'][::10],
+        dat_aligned['lon'][::10],
+        dat_aligned['alt'][::10],
+        dat_aligned['time'][::10])
 
     pdb.set_trace()
 
