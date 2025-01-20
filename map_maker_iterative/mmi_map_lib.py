@@ -51,11 +51,11 @@ def sourceCoordsAzEl(source_name, lat, lon, alt, time):
 
     # Define the location of the telescope (tod)
     telescope_location = EarthLocation(
-        lat=lat*u.deg, lon=lon*u.deg, height=alt*u.m)
+        lat=lat * u.deg, lon=lon * u.deg, height=alt * u.m)
 
     # Create an astropy Time object of Unix time array
-    time = np.nan_to_num(time) # deals with any nan or inf
-    time_array = Time(time, format='unix_tai') # timestamp w/ us
+    time = np.nan_to_num(time)  # deals with any nan or inf
+    time_array = Time(time, format='unix_tai')  # timestamp w/ us
 
     # Altitude-Azimuth frame tod
     altaz_frame = AltAz(obstime=time_array, location=telescope_location)
@@ -72,6 +72,40 @@ def sourceCoordsAzEl(source_name, lat, lon, alt, time):
         az: np.ndarray
         el: np.ndarray
     return SourceAzEl(az, el)
+
+
+# ============================================================================ #
+# sourceCoordsAzEl
+@logThis
+def getRaDec(az, el, lat, lon, alt, time):
+    """Compute RA and Dec. from aligned data.
+
+    :param az: Aligned Azimuth angle in degrees.
+    :param el: Aligned Elevation angle in degrees.
+    :param lat: Aligned Latitude angle in degrees.
+    :param lon: Aligned Longitude angle in degrees.
+    :param alt: Aligned Altitude in meters.
+    :param time: Aligned Unix timestamps.
+    :return: (RA in deg., Dec. in deg.)
+    """
+
+    # Define the location of the telescope (tod)
+    telescope_location = EarthLocation(
+        lat=lat * u.deg, lon=lon * u.deg, height=alt * u.m)
+
+    # Create an astropy Time object of Unix time array
+    time = np.nan_to_num(time)  # deals with any nan or inf
+    time_array = Time(time, format='unix_tai')  # timestamp w/ us
+
+    onsky_coords = SkyCoord(
+        az=az * u.deg,
+        alt=el * u.deg,
+        obstime=time_array,
+        frame='altaz',
+        location=telescope_location)
+
+
+    return onsky_coords.icrs.ra.deg, onsky_coords.icrs.dec.deg
 
 
 # ============================================================================ #
@@ -471,7 +505,7 @@ def combineMapsLoop(kids, dat_targs, Ff, dat_align_indices,
         if save_singles_func is not None:
             save_singles_func(kid, np.array([xx, yy, zz]))
 
-    import pdb; pdb.set_trace()
+    pdb.set_trace()
 
     # create combined map
     combined_map = combineMaps(kids, single_maps, shifts)

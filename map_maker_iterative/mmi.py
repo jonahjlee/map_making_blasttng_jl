@@ -8,6 +8,7 @@
 # The main naive iterative map maker script for BLAST-TNG data.
 # ============================================================================ #
 
+import pdb
 
 import os
 import gc
@@ -94,6 +95,16 @@ def main():
     # print(f"fc_high={fc_high}")
     # exit()
 
+    dat_aligned['ra'], dat_aligned['dec'] = mlib.getRaDec(
+        dat_aligned['az'],
+        dat_aligned['el'],
+        dat_aligned['lat'],
+        dat_aligned['lon'],
+        dat_aligned['alt'],
+        dat_aligned['time'])
+
+    pdb.set_trace()
+
     # slice tods to desired region (remove cal lamp)
     dat_sliced = {
         field: dat_aligned[field][slice_i:cal_i].copy() 
@@ -159,7 +170,7 @@ def main():
 
     print("Done.")
 
-    import pdb; pdb.set_trace()
+    pdb.set_trace()
 
 # ============================================================================ #
 #  M COM LOOP
