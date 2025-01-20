@@ -8,8 +8,6 @@
 # The main naive iterative map maker script for BLAST-TNG data.
 # ============================================================================ #
 
-import pdb
-
 import os
 import gc
 import time
@@ -85,7 +83,7 @@ def main():
 
     # calculate spatial bin diff.
     ds_tod = dlib.ds(dat_aligned['az'], dat_aligned['el'])
-    
+
     # high pass filter cutoff frequency
     fc_high = mlib.cutoffFrequency(fc_high_scale, 1/fs_tod, ds_tod)
 
@@ -95,29 +93,16 @@ def main():
     # print(f"fc_high={fc_high}")
     # exit()
 
-    pdb.set_trace()
-
-    del dat_raw
-    gc.collect()
-
-    ra, dec = mlib.getRaDec(
-        dat_aligned['az'][::1000],
-        dat_aligned['el'][::1000],
-        dat_aligned['lat'][::1000],
-        dat_aligned['lon'][::1000],
-        dat_aligned['alt'][::1000],
-        dat_aligned['time'][::1000])
-
-    pdb.set_trace()
-
     # slice tods to desired region (remove cal lamp)
-    # dat_sliced = {
-    #     field: dat_aligned[field][slice_i:cal_i].copy()
-    #     for field in dat_aligned}
+    dat_sliced = {
+        field: dat_aligned[field][slice_i:cal_i].copy()
+        for field in dat_aligned}
 
     # free memory and force collection (these tods are large)
-    del(dat_aligned)
+    del(dat_raw, dat_aligned)
     gc.collect()
+
+    import pdb; pdb.set_trace()
 
     print("Done.")
 
