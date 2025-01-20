@@ -89,6 +89,8 @@ def getRaDec(az, el, lat, lon, alt, time):
     :return: (RA in deg., Dec. in deg.)
     """
 
+    import pdb; pdb.set_trace()
+
     # Define the location of the telescope (tod)
     telescope_location = EarthLocation(
         lat=lat * u.deg, lon=lon * u.deg, height=alt * u.m)

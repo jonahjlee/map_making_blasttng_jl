@@ -97,6 +97,9 @@ def main():
 
     pdb.set_trace()
 
+    del dat_raw
+    gc.collect()
+
     dat_aligned['ra'], dat_aligned['dec'] = mlib.getRaDec(
         dat_aligned['az'],
         dat_aligned['el'],
@@ -108,12 +111,12 @@ def main():
     pdb.set_trace()
 
     # slice tods to desired region (remove cal lamp)
-    dat_sliced = {
-        field: dat_aligned[field][slice_i:cal_i].copy() 
-        for field in dat_aligned}
+    # dat_sliced = {
+    #     field: dat_aligned[field][slice_i:cal_i].copy()
+    #     for field in dat_aligned}
 
     # free memory and force collection (these tods are large)
-    del(dat_raw, dat_aligned)
+    del(dat_aligned)
     gc.collect()
 
     print("Done.")
