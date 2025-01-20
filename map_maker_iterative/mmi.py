@@ -101,12 +101,12 @@ def main():
     gc.collect()
 
     ra, dec = mlib.getRaDec(
-        dat_aligned['az'][::10],
-        dat_aligned['el'][::10],
-        dat_aligned['lat'][::10],
-        dat_aligned['lon'][::10],
-        dat_aligned['alt'][::10],
-        dat_aligned['time'][::10])
+        dat_aligned['az'][::1000],
+        dat_aligned['el'][::1000],
+        dat_aligned['lat'][::1000],
+        dat_aligned['lon'][::1000],
+        dat_aligned['alt'][::1000],
+        dat_aligned['time'][::1000])
 
     pdb.set_trace()
 
