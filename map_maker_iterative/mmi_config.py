@@ -25,7 +25,7 @@ pixels_per_beam = 2 # 2 in x and y = 4 pixel sampling of beam
 x_bin = y_bin = psf/pixels_per_beam/platescale # um
 
 # KID to use as the reference for shift table calculations
-kid_ref = {1:'0100', 2:'0001', 3:'0003', 4:'', 5:''}[roach]
+kid_ref = {1:'0100', 2:'0001', 3:'0003', 4:'0001', 5:'0001'}[roach]
 
 # source name for SkyCoord
 source_name = 'RCW 92'
