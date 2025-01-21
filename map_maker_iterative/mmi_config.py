@@ -32,7 +32,7 @@ source_name = 'RCW 92'
 
 # data indices
 # scan of object RCW 92
-slice_i = {1:37125750, 2:37125750, 3:37141250, 4:0, 5:0}[roach] # RCW 92
+slice_i = {1:37125750, 2:37125750, 3:37141250, 4:37125750, 5:37125750}[roach] # RCW 92
 cal_i   = slice_i + 516_000 # cal lamp
 cal_f   = slice_i + 519_000
 
@@ -46,12 +46,6 @@ print(f"fc_high_scale={fc_high_scale}")
 # base data directories
 dir_root   = '/media/player1/blast2020fc1/fc1/'   # control computer
 dir_conv   = dir_root + "converted/"              # control computer
-
-"""
-dir_root   = '/Users/james/Documents/Projects' \
-             '/2022/p22a__CCATp/map_making/data/' # James' local
-dir_conv   = dir_root                             # James' local
-"""
 
 # data directories and files
 dir_master = dir_conv + 'master_2020-01-06-06-21-22/'
