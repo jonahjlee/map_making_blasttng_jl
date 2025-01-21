@@ -33,13 +33,18 @@ if __name__ == "__main__":
     parser.add_argument("-l", "--linthresh",
                         help="Linear threshold for symmetric logarithmic scaling.",
                         default=0.01, type=float)
+    parser.add_argument("-s", "--single-kid-maps",
+                        help="Renders maps for all single KIDs in selected iteration.",
+                        action="store_true")
     args = parser.parse_args()
 
     # ===== determine best defaults ===== #
 
     if args.map_dir is None:
-        dirs = [directory for directory in os.listdir("..")
-                if os.path.isdir(directory) and directory.startswith('map_') and directory not in ignore_directories]
+        dirs = [directory for directory in os.listdir()
+                if os.path.isdir(directory)
+                and directory.startswith('map_')
+                and directory not in ignore_directories]
         latest_ctime = max(dirs, key=os.path.getctime)
         map_dir = latest_ctime
     else:
@@ -51,9 +56,11 @@ if __name__ == "__main__":
     else:
         iter_num = args.iter_num
 
+    iter_dir = os.path.join(map_dir, f'it_{iter_num}')
+
     # ===== load image data ===== #
 
-    combined_map_path = os.path.join(map_dir, f'it_{iter_num}', 'combined_map.npy')
+    combined_map_path = os.path.join(iter_dir, 'combined_map.npy')
 
     blasttng_map = np.load(combined_map_path)
     blasttng_x_offset_um = blasttng_map[0]  # um offset (x) on sensor
@@ -79,3 +86,17 @@ if __name__ == "__main__":
     plt.savefig(os.path.join(map_dir, log_map_name))
     print(f'Saved map {log_map_name} to folder {map_dir}')
     plt.close()
+
+    if args.single_kid_maps:
+        singles_dir = os.path.join(iter_dir, 'single_maps')
+        out_dir = os.path.join(singles_dir, 'single_plots')
+        os.mkdir(out_dir)
+        kid_maps = os.listdir(singles_dir)
+        for fname in kid_maps:
+            kid_map = np.load(os.path.join(singles_dir, fname), allow_pickle=True)
+            plt.imshow(kid_map[2], cmap='viridis')
+            plt.title(f'{fname}, {map_dir} it_{iter_num}')
+            map_name = f'{fname[:-4]}.png'
+            plt.savefig(os.path.join(out_dir, map_name))
+            print(f'Saved map {map_name} to folder {out_dir}')
+            plt.close()
