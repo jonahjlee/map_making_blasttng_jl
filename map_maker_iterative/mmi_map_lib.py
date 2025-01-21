@@ -314,6 +314,8 @@ def buildSingleKIDMap(tod, x, y, x_edges, y_edges):
 
     zz[zz == 0] = np.nan
 
+    import pdb; pdb.set_trace()
+
     return zz.T
 
 
