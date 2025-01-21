@@ -44,8 +44,6 @@ def loadMasterData(roach, dir_master, dir_roach):
         field: np.load(dir_master + field + '.npy')
         for field in master_fields}
 
-    import pdb; pdb.set_trace()
-
     # load common roach fields
     dat_raw['roach_time'] = np.load(dir_roach + f'ctime_built_roach{roach}.npy', mmap_mode='r')
 

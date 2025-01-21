@@ -102,8 +102,6 @@ def main():
     del(dat_raw, dat_aligned)
     gc.collect()
 
-    import pdb; pdb.set_trace()
-
     print("Done.")
 
 
