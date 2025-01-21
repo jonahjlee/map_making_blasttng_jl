@@ -123,7 +123,7 @@ def main():
     # convert offsets in degrees to um on image plane
     x_um, y_um = mlib.offsetsTanProj(x_az, y_el, platescale)
 
-    import pdb; pdb.set_trace()
+    breakpoint()
 
     # generate map bins and axes
     xx, yy, x_bins, y_bins, x_edges, y_edges = mlib.genMapAxesAndBins(
@@ -160,7 +160,7 @@ def main():
 
     print("Done.")
 
-    pdb.set_trace()
+    breakpoint()
 
 # ============================================================================ #
 #  M COM LOOP

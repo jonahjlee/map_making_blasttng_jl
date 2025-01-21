@@ -89,8 +89,6 @@ def getRaDec(az, el, lat, lon, alt, time):
     :return: (RA in deg., Dec. in deg.)
     """
 
-    import pdb; pdb.set_trace()
-
     # Define the location of the telescope (tod)
     telescope_location = EarthLocation(
         lat=lat * u.deg, lon=lon * u.deg, height=alt * u.m)
@@ -313,8 +311,6 @@ def buildSingleKIDMap(tod, x, y, x_edges, y_edges):
     # zz /= zz0
 
     zz[zz == 0] = np.nan
-
-    import pdb; pdb.set_trace()
 
     return zz.T
 

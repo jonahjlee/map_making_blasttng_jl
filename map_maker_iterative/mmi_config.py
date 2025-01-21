@@ -8,7 +8,7 @@
 # ============================================================================ #
 
 
-roach = 2
+roach = 4
 
 maps_to_build = ['DF'] # options: ['A', 'P', 'DF']
 
@@ -32,7 +32,7 @@ source_name = 'RCW 92'
 
 # data indices
 # scan of object RCW 92
-slice_i = {1:37_125_750, 2:38_212_945, 3:37_141_250, 4:None, 5:None}[roach] # RCW 92
+slice_i = {1:37_125_750, 2:37_125_750, 3:37_141_250, 4:37_125_750, 5:37_125_750}[roach] # RCW 92
 cal_i   = slice_i + 516_000
 # cal_i   = slice_i + 516_000 # cal lamp
 cal_f   = slice_i + 519_000
