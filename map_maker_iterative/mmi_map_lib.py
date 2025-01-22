@@ -304,7 +304,9 @@ def buildSingleKIDMap(tod, x, y, x_edges, y_edges):
 
     zz0, _, _ = np.histogram2d(x, y, bins=[x_edges, y_edges])
     zz, _, _ = np.histogram2d(x, y, bins=[x_edges, y_edges], weights=tod)
-    
+
+    breakpoint()
+
     with warnings.catch_warnings():
         warnings.simplefilter("ignore", category=RuntimeWarning)
         zz = np.divide(zz, zz0)
