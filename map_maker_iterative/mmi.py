@@ -72,8 +72,8 @@ def main():
     dat_targs, Ff = dlib.loadTargSweepsData(dir_targ)
 
     # load array layout and pre-calculate map shifts from layout
-    # dat_layout = dlib.abFromLayout(file_layout)
-    # shifts_xy_layout = mlib.xyFromAb(dat_layout, platescale, pixels_per_beam, psf)
+    dat_layout = dlib.abFromLayout(file_layout)
+    shifts_xy_layout = mlib.xyFromAb(dat_layout, platescale, pixels_per_beam, psf)
 
     # temporaly align tods, rebin if necessary
     dat_aligned, dat_align_indices = dlib.alignMasterAndRoachTods(dat_raw)
@@ -140,19 +140,19 @@ def main():
     kids = dlib.findAllKIDs(dir_roach) # all in dir_roach; sorted
 
     # remove unused channels
-    kids = [kid for kid in kids if int(kid) < kid_max]
+    kids = [kid for kid in kids if int(kid) <= kid_max]
 
     # KID rejects
-    # try: # file might not exist
-    #     kid_rejects = ['0333', '0158']
-    #     kids = [kid for kid in kids if kid not in kid_rejects]
-    # except: pass
+    try: # file might not exist
+        kid_rejects = dlib.loadKidRejects(file_rejects)
+        kids = [kid for kid in kids if kid not in kid_rejects]
+    except: pass
 
     # remove kids not in layout file
-    # kids = [kid for kid in kids if kid in shifts_xy_layout.keys()]
+    kids = [kid for kid in kids if kid in shifts_xy_layout.keys()]
 
     # move ref kid so it's processed first
-    # this is last so it raises an error if our ref has been removed
+    # this is last so it raises an error if ou`r ref has been removed
     kids.remove(kid_ref)
     kids.insert(0, kid_ref)
 

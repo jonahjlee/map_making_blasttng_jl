@@ -34,8 +34,7 @@ source_name = 'RCW 92'
 # data indices
 # scan of object RCW 92
 slice_i = {1:37_125_750, 2:37_144_000, 3:37_141_250, 4:37_138_750, 5:37_139_000}[roach] # RCW 92
-cal_i   = slice_i + 516_000
-# cal_i   = slice_i + 516_000 # cal lamp
+cal_i   = slice_i + 516_000 # cal lamp
 cal_f   = slice_i + 519_000
 
 # common-mode loop iterations
@@ -70,10 +69,10 @@ elif roach == 5:
     dir_targ    += 'Tue_Jan__7_00_55_51_2020/'
 
 # detector layout file
-# file_layout = dir_root + f'map_making/detector_layouts/layout_roach{roach}.csv'
+file_layout = dir_root + f'map_making/detector_layouts/layout_roach{roach}.csv'
 
 # KID rejects list
-# file_rejects = dir_root + f'map_making/kid_rejects/kid_rejects_roach{roach}.dat'
+file_rejects = dir_root + f'map_making/kid_rejects/kid_rejects_roach{roach}.dat'
 
 # common-mode file
 file_commonmode = f'common_mode_roach{roach}.dat'
