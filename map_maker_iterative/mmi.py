@@ -177,14 +177,16 @@ def main():
         dir_it = os.path.join(dir_out, f'it_{iteration}')
         makeDirs([dir_single, dir_xform], dir_it)
 
-        # common mode KID loop
-        # loop over KIDs, generate common mode
-        common_mode = mlib.commomModeLoop(
-            kids, dat_targs, Ff, dat_align_indices, 
-            roach, dir_roach, slice_i, cal_i, cal_f, 
-            x_um, y_um, x_edges, y_edges, source_xy, combined_map,
-            fs_tod, fc_high)
-        np.save(os.path.join(dir_it, file_commonmode), common_mode)
+        # # common mode KID loop
+        # # loop over KIDs, generate common mode
+        # common_mode = mlib.commomModeLoop(
+        #     kids, dat_targs, Ff, dat_align_indices,
+        #     roach, dir_roach, slice_i, cal_i, cal_f,
+        #     x_um, y_um, x_edges, y_edges, source_xy, combined_map,
+        #     fs_tod, fc_high)
+        # np.save(os.path.join(dir_it, file_commonmode), common_mode)
+
+        common_mode = 0
 
         # combine maps loop
         # loop over KIDs, generate single maps, combine
