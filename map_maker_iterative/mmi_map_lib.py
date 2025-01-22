@@ -477,7 +477,7 @@ def combineMapsLoop(kids, dat_targs, Ff, dat_align_indices,
         # get the normalized df for this kid
         tod = tlib.getNormKidDf(kid, dat_targs, Ff, dat_align_indices, 
                           roach, dir_roach, i_i, i_cal, i_f)
-        
+
         # clean the df tod
         tod = tlib.cleanTOD(tod)
 
@@ -486,10 +486,12 @@ def combineMapsLoop(kids, dat_targs, Ff, dat_align_indices,
 
         # high-pass filter
         # tod = tlib.highpassFilterTOD(tod, fs_tod, fc_high)
-        
+
         # build the binned pixel map
         zz  = buildSingleKIDMap(tod, x, y, x_edges, y_edges)
         single_maps[kid] = zz
+
+        breakpoint()
 
         # find the source's coords
         xy = sourceCoords(xx, yy, zz) # x_im, y_im
@@ -500,6 +502,8 @@ def combineMapsLoop(kids, dat_targs, Ff, dat_align_indices,
 
         # use source determined shifts if not given as input
         shifts = shifts_source if shifts is None else shifts
+
+        breakpoint()
 
         # output single map to file
         if save_singles_func is not None:
