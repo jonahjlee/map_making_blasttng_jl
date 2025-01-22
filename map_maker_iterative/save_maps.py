@@ -90,9 +90,11 @@ if __name__ == "__main__":
     if args.single_kid_maps:
         singles_dir = os.path.join(iter_dir, 'single_maps')
         out_dir = os.path.join(singles_dir, 'single_plots')
-        os.mkdir(out_dir)
+        os.makedirs(out_dir, exist_ok=True)
         kid_maps = os.listdir(singles_dir)
         for fname in kid_maps:
+            if os.path.isdir(os.path.join(singles_dir, fname)): continue
+            if not fname.startswith('map_kid_'): continue
             kid_map = np.load(os.path.join(singles_dir, fname), allow_pickle=True)
             plt.imshow(kid_map[2], cmap='viridis')
             plt.title(f'{fname}, {map_dir} it_{iter_num}')
