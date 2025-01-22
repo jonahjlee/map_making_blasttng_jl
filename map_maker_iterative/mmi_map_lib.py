@@ -491,8 +491,6 @@ def combineMapsLoop(kids, dat_targs, Ff, dat_align_indices,
         zz  = buildSingleKIDMap(tod, x, y, x_edges, y_edges)
         single_maps[kid] = zz
 
-        breakpoint()
-
         # find the source's coords
         xy = sourceCoords(xx, yy, zz) # x_im, y_im
         source_xy[kid] = xy
@@ -502,8 +500,6 @@ def combineMapsLoop(kids, dat_targs, Ff, dat_align_indices,
 
         # use source determined shifts if not given as input
         shifts = shifts_source if shifts is None else shifts
-
-        breakpoint()
 
         # output single map to file
         if save_singles_func is not None:
