@@ -22,7 +22,7 @@ psf = {1:0.0150, 2:0.0075, 3:0.0105, 4:0.0075, 5:0.0075}[roach] # deg/beam
 # map pixel bin sizes to use (determines final resolution)
 # beam is 0.01 degrees or 36 arcsec
 pixels_per_beam = 2 # 2 in x and y = 4 pixel sampling of beam
-x_bin = y_bin = psf/pixels_per_beam/platescale # um
+x_bin = y_bin = psf/pixels_per_beam/platescale * 2 # um
 
 # KID to use as the reference for shift table calculations
 kid_ref = {1:'0100', 2:'0001', 3:'0003', 4:'0001', 5:'0001'}[roach]
