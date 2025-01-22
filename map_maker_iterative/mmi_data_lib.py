@@ -121,8 +121,6 @@ def alignMasterAndRoachTods(dat_raw):
     # use aligned roach time as main time tod
     dat_aligned['time'] = roach_time[indices]
 
-    breakpoint()
-        
     return dat_aligned, indices
 
 
