@@ -89,7 +89,7 @@ dir_xform = 'align/'
 file_source_coords = dir_xform + f'source_coords_roach{roach}.npy'
 
 # first unused KID channel (2469 total used channels)
-kid_max = {1:380, 2:473, 3:667, 4:498, 5:450}[roach]
+kid_max = {1:380, 2:473, 3:667, 4:497, 5:450}[roach]
 
 # TOD peak properties for find_peaks for source search
 peak_s = 3   # prominence [multiple of noise]
