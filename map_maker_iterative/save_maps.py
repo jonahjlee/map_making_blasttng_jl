@@ -36,6 +36,9 @@ if __name__ == "__main__":
     parser.add_argument('-s', '--single-kid-maps', nargs='*',
                         help='Renders maps for single KIDs in selected iteration. Leave value empty to build all single maps.',
                         default=None, type=int)
+    parser.add_argument('-ct', '--common-mode',
+                        help='Produces the map of the common-mode for the iteration if data is present.',
+                        action='store_true')
     args = parser.parse_args()
 
     # ===== determine best defaults ===== #
@@ -69,6 +72,8 @@ if __name__ == "__main__":
 
     # ===== plot and save results ===== #
 
+    # ===== combined linear & log maps ===== #
+
     norm = colors.SymLogNorm(linthresh=args.linthresh)
 
     plt.imshow(blasttng_df + args.offset, cmap='viridis')
@@ -86,6 +91,8 @@ if __name__ == "__main__":
     plt.savefig(os.path.join(map_dir, log_map_name))
     print(f'Saved map {log_map_name} to folder {map_dir}')
     plt.close()
+
+    # ===== single kid maps ===== #
 
     if args.single_kid_maps is not None:
         singles_dir = os.path.join(iter_dir, 'single_maps')
@@ -109,3 +116,14 @@ if __name__ == "__main__":
             plt.savefig(os.path.join(out_dir, map_name))
             print(f'Saved map {map_name} to folder {out_dir}')
             plt.close()
+
+    # ===== common-mode maps ===== #
+
+    if args.common_mode is not None:
+        cmmap = np.load(os.path.join(iter_dir, 'common_mode_map.npy'), allow_pickle=True)
+        plt.imshow(cmmap, cmap='viridis')
+        plt.title(f'common-mode, {map_dir} it_{iter_num}')
+        map_name = 'common_mode_map.png'
+        plt.savefig(os.path.join(iter_dir, map_name))
+        print(f'Saved map {map_name} to folder {iter_dir}')
+        plt.close()

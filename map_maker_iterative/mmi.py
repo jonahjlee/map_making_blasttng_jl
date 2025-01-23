@@ -198,7 +198,7 @@ def main():
             None)
             # shifts_xy_layout)
         cmmap = mlib.buildSingleKIDMap(common_mode, x_um, y_um, x_edges, y_edges)
-        np.save(os.path.join(dir_it, f"common_mode_it_{iteration}"), cmmap)
+        np.save(os.path.join(dir_it, "common_mode_map"), cmmap)
 
         # output combined map to file
         if dir_out is not None:
