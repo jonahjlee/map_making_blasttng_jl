@@ -143,10 +143,10 @@ def main():
     kids = [kid for kid in kids if int(kid) <= kid_max]
 
     # KID rejects
-    # try: # file might not exist
-    #     kid_rejects = dlib.loadKidRejects(file_rejects)
-    #     kids = [kid for kid in kids if kid not in kid_rejects]
-    # except: pass
+    try: # file might not exist
+        kid_rejects = dlib.loadKidRejects(file_rejects)
+        kids = [kid for kid in kids if kid not in kid_rejects]
+    except: pass
 
     # remove kids not in layout file
     # kids = [kid for kid in kids if kid in shifts_xy_layout.keys()]
@@ -177,16 +177,14 @@ def main():
         dir_it = os.path.join(dir_out, f'it_{iteration}')
         makeDirs([dir_single, dir_xform], dir_it)
 
-        # # common mode KID loop
-        # # loop over KIDs, generate common mode
-        # common_mode = mlib.commomModeLoop(
-        #     kids, dat_targs, Ff, dat_align_indices,
-        #     roach, dir_roach, slice_i, cal_i, cal_f,
-        #     x_um, y_um, x_edges, y_edges, source_xy, combined_map,
-        #     fs_tod, fc_high)
-        # np.save(os.path.join(dir_it, file_commonmode), common_mode)
-
-        common_mode = 0
+        # common mode KID loop
+        # loop over KIDs, generate common mode
+        common_mode = mlib.commomModeLoop(
+            kids, dat_targs, Ff, dat_align_indices,
+            roach, dir_roach, slice_i, cal_i, cal_f,
+            x_um, y_um, x_edges, y_edges, source_xy, combined_map,
+            fs_tod, fc_high)
+        np.save(os.path.join(dir_it, file_commonmode), common_mode)
 
         # combine maps loop
         # loop over KIDs, generate single maps, combine
