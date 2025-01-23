@@ -92,6 +92,18 @@ if __name__ == "__main__":
     print(f'Saved map {log_map_name} to folder {map_dir}')
     plt.close()
 
+    # ===== common-mode maps ===== #
+
+    if args.common_mode is not None:
+        cmmap = np.load(os.path.join(iter_dir, 'common_mode_map.npy'), allow_pickle=True)
+        plt.imshow(cmmap, cmap='viridis')
+        plt.colorbar(label='DF')
+        plt.title(f'common-mode, it_{iter_num}')
+        map_name = name = f'it_{iter_num}_common_mode_map.png'
+        plt.savefig(os.path.join(map_dir, map_name))
+        print(f'Saved map {map_name} to folder {map_dir}')
+        plt.close()
+
     # ===== single kid maps ===== #
 
     if args.single_kid_maps is not None:
@@ -116,15 +128,3 @@ if __name__ == "__main__":
             plt.savefig(os.path.join(out_dir, map_name))
             print(f'Saved map {map_name} to folder {out_dir}')
             plt.close()
-
-    # ===== common-mode maps ===== #
-
-    if args.common_mode is not None:
-        cmmap = np.load(os.path.join(iter_dir, 'common_mode_map.npy'), allow_pickle=True)
-        plt.imshow(cmmap, cmap='viridis')
-        plt.colorbar(label='DF')
-        plt.title(f'common-mode, {map_dir} it_{iter_num}')
-        map_name = 'common_mode_map.png'
-        plt.savefig(os.path.join(iter_dir, map_name))
-        print(f'Saved map {map_name} to folder {iter_dir}')
-        plt.close()
