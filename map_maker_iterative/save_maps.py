@@ -98,7 +98,7 @@ if __name__ == "__main__":
         cmmap = np.load(os.path.join(iter_dir, 'common_mode_map.npy'), allow_pickle=True)
         plt.imshow(cmmap, cmap='viridis')
         plt.colorbar(label='DF')
-        plt.title(f'common-mode, it_{iter_num}')
+        plt.title(f'common-mode, it_{iter_num}\nBuilt from folder: {map_dir}')
         map_name = name = f'it_{iter_num}_common_mode_map.png'
         plt.savefig(os.path.join(map_dir, map_name))
         print(f'Saved map {map_name} to folder {map_dir}')
