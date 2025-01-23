@@ -72,7 +72,7 @@ def main():
     dat_targs, Ff = dlib.loadTargSweepsData(dir_targ)
 
     # load array layout and pre-calculate map shifts from layout
-    dat_layout = dlib.abFromLayout(file_layout)
+    # dat_layout = dlib.abFromLayout(file_layout)
     # shifts_xy_layout = mlib.xyFromAb(dat_layout, platescale, pixels_per_beam, psf)
 
     # temporaly align tods, rebin if necessary
