@@ -122,6 +122,7 @@ if __name__ == "__main__":
     if args.common_mode is not None:
         cmmap = np.load(os.path.join(iter_dir, 'common_mode_map.npy'), allow_pickle=True)
         plt.imshow(cmmap, cmap='viridis')
+        plt.colorbar(label='DF')
         plt.title(f'common-mode, {map_dir} it_{iter_num}')
         map_name = 'common_mode_map.png'
         plt.savefig(os.path.join(iter_dir, map_name))
