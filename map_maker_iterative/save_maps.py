@@ -73,7 +73,7 @@ if __name__ == "__main__":
 
     try:
         raw_map = np.load(combined_map_raw_path)
-        raw_df = blasttng_map[2]
+        raw_df = raw_map[2]
     except FileNotFoundError:
         raw_df = None
 
