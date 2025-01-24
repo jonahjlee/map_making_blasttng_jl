@@ -64,7 +64,7 @@ if __name__ == "__main__":
     # ===== load image data ===== #
 
     combined_map_path = os.path.join(iter_dir, 'combined_map.npy')
-    combined_map_raw_path = os.path.join(iter_dir, 'combined_map_raw.npy')
+    combined_map_raw_path = os.path.join(map_dir, 'combined_map_raw.npy')
 
     blasttng_map = np.load(combined_map_path)
     blasttng_x_offset_um = blasttng_map[0]  # um offset (x) on sensor
