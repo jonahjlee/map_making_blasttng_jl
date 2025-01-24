@@ -64,11 +64,18 @@ if __name__ == "__main__":
     # ===== load image data ===== #
 
     combined_map_path = os.path.join(iter_dir, 'combined_map.npy')
+    combined_map_raw_path = os.path.join(iter_dir, 'combined_map_raw.npy')
 
     blasttng_map = np.load(combined_map_path)
     blasttng_x_offset_um = blasttng_map[0]  # um offset (x) on sensor
     blasttng_y_offset_um = blasttng_map[1]  # um offset (y) on sensor
     blasttng_df = blasttng_map[2]  # signal strength, df
+
+    try:
+        raw_map = np.load(combined_map_raw_path)
+        raw_df = blasttng_map[2]
+    except FileNotFoundError:
+        raw_df = None
 
     # ===== plot and save results ===== #
 
@@ -91,6 +98,15 @@ if __name__ == "__main__":
     plt.savefig(os.path.join(map_dir, log_map_name))
     print(f'Saved map {log_map_name} to folder {map_dir}')
     plt.close()
+
+    if raw_df is not None:
+        plt.imshow(blasttng_df, cmap='viridis')
+        plt.colorbar(label='DF')
+        plt.title(f"raw combined map (no c(t) removal)\nBuilt from folder: {map_dir}")
+        log_map_name = f'combined_map_raw.png'
+        plt.savefig(os.path.join(map_dir, log_map_name))
+        print(f'Saved map {log_map_name} to folder {map_dir}')
+        plt.close()
 
     # ===== common-mode maps ===== #
 
