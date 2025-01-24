@@ -78,20 +78,8 @@ def main():
     # temporaly align tods, rebin if necessary
     dat_aligned, dat_align_indices = dlib.alignMasterAndRoachTods(dat_raw)
 
-    # calculate sampling frequency
-    fs_tod = dlib.samplingFrequency(dat_aligned['time'])
-
     # calculate spatial bin diff.
     ds_tod = dlib.ds(dat_aligned['az'], dat_aligned['el'])
-
-    # high pass filter cutoff frequency
-    fc_high = mlib.cutoffFrequency(fc_high_scale, 1/fs_tod, ds_tod)
-
-    # print(f"fs_tod={fs_tod}")
-    # print(f"ds_tod={ds_tod}")
-    # print(f"fc_high_scale={fc_high_scale}")
-    # print(f"fc_high={fc_high}")
-    # exit()
 
     # slice tods to desired region (remove cal lamp)
     dat_sliced = {
@@ -179,11 +167,8 @@ def main():
 
         # common mode KID loop
         # loop over KIDs, generate common mode
-        common_mode = mlib.commomModeLoop(
-            kids, dat_targs, Ff, dat_align_indices,
-            roach, dir_roach, slice_i, cal_i, cal_f,
-            x_um, y_um, x_edges, y_edges, source_xy, combined_map,
-            fs_tod, fc_high)
+        common_mode = mlib.commonModeLoop(kids, dat_targs, Ff, dat_align_indices, roach, dir_roach, slice_i, cal_i,
+                                          cal_f, x_um, y_um, x_edges, y_edges, source_xy, combined_map)
         np.save(os.path.join(dir_it, file_commonmode), common_mode)
 
         # combine maps loop
@@ -194,9 +179,11 @@ def main():
         combined_map, shifts_source, source_xy = mlib.combineMapsLoop(
             kids, dat_targs, Ff, dat_align_indices, roach, dir_roach, 
             slice_i, cal_i, cal_f, x_um, y_um, x_edges, y_edges, xx, yy, common_mode,
-            fs_tod, fc_high, save_singles_func, 
+            save_singles_func,
             None)
             # shifts_xy_layout)
+
+        # save common mode to file as map
         cmmap = mlib.buildSingleKIDMap(common_mode, x_um, y_um, x_edges, y_edges)
         np.save(os.path.join(dir_it, "common_mode_map"), cmmap)
 
@@ -210,7 +197,15 @@ def main():
                 shifts_source)
         # np.save(os.path.join(dir_it, dir_xform, f'shifts_xy_layout.npy'),
         #         shifts_xy_layout)
-        
+
+    ct_not_removed, _, _ = mlib.combineMapsLoop(
+        kids, dat_targs, Ff, dat_align_indices, roach, dir_roach,
+        slice_i, cal_i, cal_f, x_um, y_um, x_edges, y_edges, xx, yy, 0,
+        None,None)
+    # output combined map to file
+    if dir_out is not None:
+        np.save(os.path.join(dir_out, f"combined_map_raw"),
+                [xx, yy, ct_not_removed])
 
     print("Done.")
     print(f"Time taken: {timer.deltat()}")

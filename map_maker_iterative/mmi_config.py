@@ -8,7 +8,7 @@
 # ============================================================================ #
 
 
-roach = 2
+roach = 1
 
 maps_to_build = ['DF'] # options: ['A', 'P', 'DF']
 
@@ -38,7 +38,7 @@ cal_i   = slice_i + 516_000 # cal lamp
 cal_f   = slice_i + 519_000
 
 # common-mode loop iterations
-ct_its = 3
+ct_its = 5
 
 # high pass filter cutoff frequency, in spatial scale
 fc_high_scale = 40*psf # deg
@@ -72,8 +72,7 @@ elif roach == 5:
 file_layout = dir_root + f'map_making/detector_layouts/layout_roach{roach}.csv'
 
 # KID rejects list
-# file_rejects = dir_root + f'map_making/kid_rejects/kid_rejects_roach{roach}.dat'
-file_rejects = 'kid_rejects_roach2_2.dat'
+file_rejects = dir_root + f'map_making/kid_rejects/kid_rejects_roach{roach}.dat'
 
 # common-mode file
 file_commonmode = f'common_mode_roach{roach}.dat'
@@ -94,8 +93,4 @@ kid_max = {1:380, 2:473, 3:667, 4:497, 5:450}[roach]
 
 # TOD peak properties for find_peaks for source search
 peak_s = 3   # prominence [multiple of noise]
-peak_w = 100 # width [indices] 
-
-# Noise finding highpass parameters
-noise_cutoff_freq = 10 # Hz
-noise_order       = 3
+peak_w = 100 # width [indices]
