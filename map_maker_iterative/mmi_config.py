@@ -8,7 +8,7 @@
 # ============================================================================ #
 
 
-roach = 4
+roach = 1
 
 maps_to_build = ['DF'] # options: ['A', 'P', 'DF']
 
@@ -72,7 +72,7 @@ elif roach == 5:
 file_layout = dir_root + f'map_making/detector_layouts/layout_roach{roach}.csv'
 
 # KID rejects list
-# file_rejects = dir_root + f'map_making/kid_rejects/kid_rejects_roach{roach}.dat'
+file_rejects = dir_root + f'map_making/kid_rejects/kid_rejects_roach{roach}.dat'
 
 # common-mode file
 file_commonmode = f'common_mode_roach{roach}.dat'

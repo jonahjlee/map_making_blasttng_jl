@@ -370,6 +370,21 @@ def azelToMapPix(az, el, x_edges, y_edges):
     indices_x = np.clip(indices_x, 0, len(x_edges) - 2)
     indices_y = np.clip(indices_y, 0, len(y_edges) - 2)
 
+    x_low_clip = indices_x <= 0
+    y_low_clip = indices_y <= 0
+    x_high_clip = indices_x >= len(x_edges) - 2
+    y_high_clip = indices_y >= len(y_edges) - 2
+
+    x_low_clip_frac = np.count_nonzero(x_low_clip) / len(indices_x)
+    y_low_clip_frac = np.count_nonzero(y_low_clip) / len(indices_y)
+    x_high_clip_frac = np.count_nonzero(x_high_clip) / len(indices_x)
+    y_high_clip_frac = np.count_nonzero(y_high_clip) / len(indices_y)
+
+    print(f"x_low: {x_low_clip_frac*100:04}%,"
+          f"y_low: {y_low_clip_frac*100:04}%,"
+          f"x_high: {x_high_clip_frac*100:04}%,"
+          f"y_high: {y_high_clip_frac*100:04}%")
+
     return indices_x, indices_y
 
 
