@@ -198,6 +198,8 @@ def main():
         # np.save(os.path.join(dir_it, dir_xform, f'shifts_xy_layout.npy'),
         #         shifts_xy_layout)
 
+    print("Saving raw maps (without c(t) removal)")
+
     ct_not_removed, _, _ = mlib.combineMapsLoop(
         kids, dat_targs, Ff, dat_align_indices, roach, dir_roach,
         slice_i, cal_i, cal_f, x_um, y_um, x_edges, y_edges, xx, yy, 0,
