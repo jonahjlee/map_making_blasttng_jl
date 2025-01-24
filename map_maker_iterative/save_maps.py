@@ -100,7 +100,7 @@ if __name__ == "__main__":
     plt.close()
 
     if raw_df is not None:
-        plt.imshow(blasttng_df, cmap='viridis')
+        plt.imshow(raw_df, cmap='viridis')
         plt.colorbar(label='DF')
         plt.title(f"raw combined map (no c(t) removal)\nBuilt from folder: {map_dir}")
         log_map_name = f'combined_map_raw.png'
