@@ -27,9 +27,6 @@ if __name__ == "__main__":
     parser.add_argument("-i", "--iter-num",
                         help="Common-mode iteration to view. Default: highest iter.",
                         default=None, type=int)
-    parser.add_argument("-o", "--offset",
-                        help="Constant offset to add to map. Small values (~0.01) can improve color scaling.",
-                        default=0, type=float)
     parser.add_argument("-l", "--linthresh",
                         help="Linear threshold for symmetric logarithmic scaling.",
                         default=0.01, type=float)
@@ -64,18 +61,11 @@ if __name__ == "__main__":
     # ===== load image data ===== #
 
     combined_map_path = os.path.join(iter_dir, 'combined_map.npy')
-    combined_map_raw_path = os.path.join(map_dir, 'combined_map_raw.npy')
 
     blasttng_map = np.load(combined_map_path)
     blasttng_x_offset_um = blasttng_map[0]  # um offset (x) on sensor
     blasttng_y_offset_um = blasttng_map[1]  # um offset (y) on sensor
     blasttng_df = blasttng_map[2]  # signal strength, df
-
-    try:
-        raw_map = np.load(combined_map_raw_path)
-        raw_df = raw_map[2]
-    except FileNotFoundError:
-        raw_df = None
 
     # ===== plot and save results ===== #
 
@@ -83,7 +73,7 @@ if __name__ == "__main__":
 
     norm = colors.SymLogNorm(linthresh=args.linthresh)
 
-    plt.imshow(blasttng_df + args.offset, cmap='viridis')
+    plt.imshow(blasttng_df, cmap='viridis')
     plt.colorbar(label='DF')
     plt.title(f"combined map, it_{iter_num}.\nBuilt from folder: {map_dir}")
     lin_map_name = f'it_{iter_num}_combined_map.png'
@@ -91,7 +81,7 @@ if __name__ == "__main__":
     print(f'Saved map {lin_map_name} to folder {map_dir}')
     plt.close()
 
-    plt.imshow(blasttng_df + args.offset, norm=norm, cmap='viridis')
+    plt.imshow(blasttng_df, norm=norm, cmap='viridis')
     plt.colorbar(label='DF')
     plt.title(f"combined map, it_{iter_num}, log scale.\nBuilt from folder: {map_dir}")
     log_map_name = f'it_{iter_num}_combined_map_log.png'
@@ -99,18 +89,9 @@ if __name__ == "__main__":
     print(f'Saved map {log_map_name} to folder {map_dir}')
     plt.close()
 
-    if raw_df is not None:
-        plt.imshow(raw_df, cmap='viridis')
-        plt.colorbar(label='DF')
-        plt.title(f"raw combined map (no c(t) removal)\nBuilt from folder: {map_dir}")
-        log_map_name = f'combined_map_raw.png'
-        plt.savefig(os.path.join(map_dir, log_map_name))
-        print(f'Saved map {log_map_name} to folder {map_dir}')
-        plt.close()
-
     # ===== common-mode maps ===== #
 
-    if args.common_mode is not None:
+    if args.common_mode:
         cmmap = np.load(os.path.join(iter_dir, 'common_mode_map.npy'), allow_pickle=True)
         plt.imshow(cmmap, cmap='viridis')
         plt.colorbar(label='DF')
