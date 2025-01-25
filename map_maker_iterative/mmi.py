@@ -152,10 +152,30 @@ def main():
 #  M COM LOOP
 # The common-mode iterative refinement loop
 
-    print(f"Performing {ct_its} common-mode iterations: ", end="", flush=True)
+    print("Generating naive map")
 
-    combined_map = None
-    source_xy = None
+    # create dir and subdirs for this iteration
+    dir_it = os.path.join(dir_out, f'naive_map')
+    makeDirs([dir_single, dir_xform], dir_it)
+
+    # combine maps loop
+    # loop over KIDs, generate single maps, combine
+    def save_singles_func(kid, data):
+        # we can probably return all single maps and then save here?
+        np.save(os.path.join(dir_it, dir_single, f"map_kid_{kid}"), data)
+    combined_map, shifts_source, source_xy = mlib.combineMapsLoop(
+        kids, dat_targs, Ff, dat_align_indices, roach, dir_roach,
+        slice_i, cal_i, cal_f, x_um, y_um, x_edges, y_edges, xx, yy, 0,
+        save_singles_func,
+        None)
+    # shifts_xy_layout)
+
+    # output combined map to file
+    if dir_out is not None:
+        np.save(os.path.join(dir_it, f"combined_map"),
+                [xx, yy, combined_map])
+
+    print(f"Performing {ct_its} common-mode iterations: ", end="", flush=True)
 
     for iteration in range(ct_its):
 
@@ -171,11 +191,6 @@ def main():
                                           cal_f, x_um, y_um, x_edges, y_edges, source_xy, combined_map)
         np.save(os.path.join(dir_it, file_commonmode), common_mode)
 
-        # combine maps loop
-        # loop over KIDs, generate single maps, combine
-        def save_singles_func(kid, data):
-            # we can probably return all single maps and then save here?
-            np.save(os.path.join(dir_it, dir_single, f"map_kid_{kid}"), data)
         combined_map, shifts_source, source_xy = mlib.combineMapsLoop(
             kids, dat_targs, Ff, dat_align_indices, roach, dir_roach, 
             slice_i, cal_i, cal_f, x_um, y_um, x_edges, y_edges, xx, yy, common_mode,
@@ -197,17 +212,6 @@ def main():
                 shifts_source)
         # np.save(os.path.join(dir_it, dir_xform, f'shifts_xy_layout.npy'),
         #         shifts_xy_layout)
-
-    print("Saving raw maps (without c(t) removal)")
-
-    ct_not_removed, _, _ = mlib.combineMapsLoop(
-        kids, dat_targs, Ff, dat_align_indices, roach, dir_roach,
-        slice_i, cal_i, cal_f, x_um, y_um, x_edges, y_edges, xx, yy, 0,
-        None,None)
-    # output combined map to file
-    if dir_out is not None:
-        np.save(os.path.join(dir_out, f"combined_map_raw"),
-                [xx, yy, ct_not_removed])
 
     print("Done.")
     print(f"Time taken: {timer.deltat()}")
