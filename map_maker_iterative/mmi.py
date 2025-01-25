@@ -155,7 +155,9 @@ def main():
     print("Generating naive map")
 
     # create dir and subdirs for this iteration
-    dir_it = os.path.join(dir_out, f'naive_map')
+    log.info("Note: iteration numbering has been updated such that it_0 contains no common-mode filtering,")
+    log.info("      it_1 contains one pass of filtering, etc.")
+    dir_it = os.path.join(dir_out, f'it_0')
     makeDirs([dir_single, dir_xform], dir_it)
 
     # combine maps loop
@@ -177,9 +179,9 @@ def main():
 
     print(f"Performing {ct_its} common-mode iterations: ", end="", flush=True)
 
-    for iteration in range(ct_its):
+    for iteration in range(1, ct_its + 1):
 
-        print(f"{iteration+1} ", end="", flush=True)
+        print(f"{iteration} ", end="", flush=True)
 
         # create dir and subdirs for this iteration
         dir_it = os.path.join(dir_out, f'it_{iteration}')
