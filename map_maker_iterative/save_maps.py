@@ -16,16 +16,13 @@ import matplotlib.colors as colors
 
 ignore_directories = ['map_maker_iterative']
 
-if __name__ == "__main__":
-
-    # ===== parse command-line args ===== #
-
+def parse_args():
     parser = argparse.ArgumentParser()
     parser.add_argument("-m", "--map-dir",
                         help="Directory with map files. Opens most recent by default.",
                         default=None)
-    parser.add_argument("-i", "--iter-num",
-                        help="Common-mode iteration to view. Default: highest iter.",
+    parser.add_argument("-i", "--iterations", nargs='*',
+                        help="Common-mode iterations to view. Default: highest iter. only.",
                         default=None, type=int)
     parser.add_argument("-l", "--linthresh",
                         help="Linear threshold for symmetric logarithmic scaling.",
@@ -36,43 +33,23 @@ if __name__ == "__main__":
     parser.add_argument('-ct', '--common-mode',
                         help='Produces the map of the common-mode for the iteration if data is present.',
                         action='store_true')
-    args = parser.parse_args()
+    return parser.parse_args()
 
-    # ===== determine best defaults ===== #
 
-    if args.map_dir is None:
-        dirs = [directory for directory in os.listdir()
-                if os.path.isdir(directory)
-                and directory.startswith('map_')
-                and directory not in ignore_directories]
-        latest_ctime = max(dirs, key=os.path.getctime)
-        map_dir = latest_ctime
-    else:
-        map_dir = args.map_dir
+def save_iter_plots(args, iter_num, map_dir):
 
-    if args.iter_num is None:
-        subdirectories = os.listdir(map_dir)
-        iter_num = max([int(it[3]) for it in subdirectories if it.startswith('it_')])
-    else:
-        iter_num = args.iter_num
-
+    # ===== locate iteration directory ===== #
     iter_dir = os.path.join(map_dir, f'it_{iter_num}')
 
+
     # ===== load image data ===== #
-
     combined_map_path = os.path.join(iter_dir, 'combined_map.npy')
-
     blasttng_map = np.load(combined_map_path)
-    blasttng_x_offset_um = blasttng_map[0]  # um offset (x) on sensor
-    blasttng_y_offset_um = blasttng_map[1]  # um offset (y) on sensor
     blasttng_df = blasttng_map[2]  # signal strength, df
 
-    # ===== plot and save results ===== #
 
     # ===== combined linear & log maps ===== #
-
     norm = colors.SymLogNorm(linthresh=args.linthresh)
-
     plt.imshow(blasttng_df, cmap='viridis')
     plt.colorbar(label='DF')
     plt.title(f"combined map, it_{iter_num}.\nBuilt from folder: {map_dir}")
@@ -80,7 +57,6 @@ if __name__ == "__main__":
     plt.savefig(os.path.join(map_dir, lin_map_name))
     print(f'Saved map {lin_map_name} to folder {map_dir}')
     plt.close()
-
     plt.imshow(blasttng_df, norm=norm, cmap='viridis')
     plt.colorbar(label='DF')
     plt.title(f"combined map, it_{iter_num}, log scale.\nBuilt from folder: {map_dir}")
@@ -89,8 +65,8 @@ if __name__ == "__main__":
     print(f'Saved map {log_map_name} to folder {map_dir}')
     plt.close()
 
-    # ===== common-mode maps ===== #
 
+    # ===== common-mode maps ===== #
     if args.common_mode:
         cmmap = np.load(os.path.join(iter_dir, 'common_mode_map.npy'), allow_pickle=True)
         plt.imshow(cmmap, cmap='viridis')
@@ -101,8 +77,8 @@ if __name__ == "__main__":
         print(f'Saved map {map_name} to folder {map_dir}')
         plt.close()
 
-    # ===== single kid maps ===== #
 
+    # ===== single kid maps ===== #
     if args.single_kid_maps is not None:
         singles_dir = os.path.join(iter_dir, 'single_maps')
         out_dir = os.path.join(singles_dir, 'single_plots')
@@ -125,3 +101,32 @@ if __name__ == "__main__":
             plt.savefig(os.path.join(out_dir, map_name))
             print(f'Saved map {map_name} to folder {out_dir}')
             plt.close()
+
+
+if __name__ == "__main__":
+
+    # ===== parse command-line args ===== #
+    args = parse_args()
+
+
+    # ===== determine best defaults ===== #
+    if args.map_dir is None:
+        dirs = [directory for directory in os.listdir()
+                if os.path.isdir(directory)
+                and directory.startswith('map_')
+                and directory not in ignore_directories]
+        latest_ctime = max(dirs, key=os.path.getctime)
+        map_dir = latest_ctime
+    else:
+        map_dir = args.map_dir
+
+    if args.iterations is None:
+        subdirectories = os.listdir(map_dir)
+        iters = [max([int(it[3]) for it in subdirectories if it.startswith('it_')])]
+    else:
+        iters = args.iterations
+
+
+    # ===== save plots for selected iterations ===== #
+    for iter_num in iters:
+        save_iter_plots(args, iter_num, map_dir)
