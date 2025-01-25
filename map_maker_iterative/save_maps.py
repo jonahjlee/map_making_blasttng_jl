@@ -68,14 +68,17 @@ def save_iter_plots(args, iter_num, map_dir):
 
     # ===== common-mode maps ===== #
     if args.common_mode:
-        cmmap = np.load(os.path.join(iter_dir, 'common_mode_map.npy'), allow_pickle=True)
-        plt.imshow(cmmap, cmap='viridis')
-        plt.colorbar(label='DF')
-        plt.title(f'common-mode, it_{iter_num}\nBuilt from folder: {map_dir}')
-        map_name = name = f'it_{iter_num}_common_mode_map.png'
-        plt.savefig(os.path.join(map_dir, map_name))
-        print(f'Saved map {map_name} to folder {map_dir}')
-        plt.close()
+        try:
+            cmmap = np.load(os.path.join(iter_dir, 'common_mode_map.npy'), allow_pickle=True)
+            plt.imshow(cmmap, cmap='viridis')
+            plt.colorbar(label='DF')
+            plt.title(f'common-mode, it_{iter_num}\nBuilt from folder: {map_dir}')
+            map_name = name = f'it_{iter_num}_common_mode_map.png'
+            plt.savefig(os.path.join(map_dir, map_name))
+            print(f'Saved map {map_name} to folder {map_dir}')
+            plt.close()
+        except FileNotFoundError:
+            print(f"'common_mode_map.npy' not found for it_{iter_num}")
 
 
     # ===== single kid maps ===== #
