@@ -31,7 +31,7 @@ def parse_args():
                         help='Renders maps for single KIDs in selected iteration. Leave value empty to build all single maps.',
                         default=None, type=int)
     parser.add_argument('-ct', '--common-mode',
-                        help='Produces the map of the common-mode for the iteration if data is present.',
+                        help='Produces the map of the common-mode image difference from it_0 for the iteration if data is present.',
                         action='store_true')
     return parser.parse_args()
 
@@ -73,7 +73,28 @@ def save_iter_plots(args, iter_num, map_dir):
             plt.imshow(cmmap, cmap='viridis')
             plt.colorbar(label='DF')
             plt.title(f'common-mode, it_{iter_num}\nBuilt from folder: {map_dir}')
-            map_name = name = f'it_{iter_num}_common_mode_map.png'
+            map_name = f'it_{iter_num}_common_mode_map.png'
+            plt.savefig(os.path.join(map_dir, map_name))
+            print(f'Saved map {map_name} to folder {map_dir}')
+            plt.close()
+        except FileNotFoundError:
+            print(f"'common_mode_map.npy' not found for it_{iter_num}")
+
+        try:
+            it_0_file = os.path.join(map_dir, 'it_0', 'combined_map.npy')
+            it_0_map = np.load(it_0_file, allow_pickle=True)[2]
+            ct_diff = blasttng_df - it_0_map
+
+            norm = colors.Normalize()
+            parent, (ax1, ax2) = plt.subplots(nrows=1, ncols=2, sharex=False, sharey=False, figsize=(12, 4))
+            parent.suptitle(f"Common-mode comparison. Built from folder: {map_dir}")
+            fig1 = ax1.imshow(blasttng_df, norm=norm)
+            ax1.set_title(f"combined map, it_{iter_num}.")
+            plt.colorbar(fig1, ax=ax1)
+            fig2 = ax2.imshow(ct_diff, norm=norm)
+            ax2.set_title(f"it_{iter_num} - it_0 difference.")
+            plt.colorbar(fig2, ax=ax2)
+            map_name = f'it_{iter_num}_ct_diff.png'
             plt.savefig(os.path.join(map_dir, map_name))
             print(f'Saved map {map_name} to folder {map_dir}')
             plt.close()
