@@ -159,6 +159,7 @@ def main():
     kids.insert(0, kid_ref)
 
     print("Done.")
+    print(f"deltat: common loading done: {timer.deltat()}")
 
 
 # ============================================================================ #
@@ -186,6 +187,8 @@ def main():
             x, y, x_edges, y_edges, source_xy, combined_map,
             fs_tod, fc_high)
         np.save(os.path.join(dir_it, file_commonmode), common_mode)
+
+        print(f"t:{timer.deltat()} ", end="", flush=True)
 
         # combine maps loop
         # loop over KIDs, generate single maps, combine
