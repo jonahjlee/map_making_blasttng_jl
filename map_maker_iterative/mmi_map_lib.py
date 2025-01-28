@@ -207,10 +207,10 @@ def genMapAxesAndBins(roach_data, x_bin, y_bin):
     x_bin, y_bin: (float) x/y bin size for map.
     '''
 
-    max_x = [np.max(data['x_um']) for data in roach_data.values()]
-    max_y = [np.max(data['y_um']) for data in roach_data.values()]
-    min_x = [np.min(data['x_um']) for data in roach_data.values()]
-    min_y = [np.min(data['y_um']) for data in roach_data.values()]
+    max_x = np.max([data['x_um'] for data in roach_data.values()])
+    max_y = np.max([data['y_um'] for data in roach_data.values()])
+    min_x = np.min([data['x_um'] for data in roach_data.values()])
+    min_y = np.min([data['y_um'] for data in roach_data.values()])
 
     # generate map bin arrays
     x_bins = np.arange(min_x, max_x, x_bin)
