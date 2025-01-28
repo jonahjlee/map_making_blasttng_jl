@@ -76,7 +76,7 @@ def main():
         data['dir_roach'] = dir_roach_dict[roach]
         data['dir_targ'] = dir_targ_dict[roach]
 
-        data['dat_targs'], data['Ff'], data['dat_sliced'], data['dat_align_indices'] = dlib.loadSlicedData(
+        data['dat_targs'], data['Ff'], data['dat_align_indices'], data['dat_sliced'] = dlib.loadSlicedData(
             roach,
             data['slice_i'],
             data['cal_i'],
