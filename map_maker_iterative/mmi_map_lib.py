@@ -275,7 +275,7 @@ def commonModeLoop(roach, data, x_edges, y_edges, source_xy, combined_map):
 
     tod_sum = np.zeros(data['cal_i'] - data['slice_i'])
 
-    for kid in progressbar(data['kids'], "Estimating common mode: "):
+    for kid in progressbar(data['kids'], f"Estimating common mode for roach {roach}: "):
 
         # get the normalized df for this kid
         tod = tlib.getNormKidDf(kid, data['dat_targs'], data['Ff'], data['dat_align_indices'],
@@ -464,7 +464,7 @@ def combineMapsLoop(roach_data, xx, yy, x_edges, y_edges,
     kid_ids = []
 
     for roach, data in roach_data.items():
-        for kid in progressbar(data['kids'], "Combining maps: "):
+        for kid in progressbar(data['kids'], f"Building maps for roach {roach}: "):
 
             kid_id = f'roach{roach}_{kid}'
             kid_ids.append(kid_id)
