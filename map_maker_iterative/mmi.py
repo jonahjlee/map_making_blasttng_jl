@@ -70,13 +70,20 @@ def main():
         roach_data[roach] = {}
 
     for roach, data in roach_data.items():
+        data['slice_i'] = slice_i_dict[roach]
+        data['cal_i'] = data['slice_i'] + cal_i_offset
+        data['cal_f'] = data['slice_i'] + cal_f_offset
+        data['dir_roach'] = dir_roach_dict[roach]
+        data['dir_targ'] = dir_targ_dict[roach]
+
         data['dat_targs'], data['Ff'], data['dat_sliced'], data['dat_align_indices'] = dlib.loadSlicedData(
             roach,
-            slice_i_dict[roach],
-            slice_i_dict[roach] + cal_i_offset,
+            data['slice_i'],
+            data['cal_i'],
             dir_master,
-            dir_roach_dict[roach],
-            dir_targ_dict[roach])
+            data['dir_roach'],
+            data['dir_targ'])
+
 
     print("Done.")
 
@@ -104,10 +111,9 @@ def main():
         # convert offsets in degrees to um on image plane
         data['x_um'], data['y_um'] = mlib.offsetsTanProj(data['x_az'], data['y_el'], platescale)
 
-        # generate map bins and axes
-        # TODO: separate roach-specific data from global
-        data['xx'], data['yy'], x_bins, y_bins, x_edges, y_edges \
-            = mlib.genMapAxesAndBins(data['x_um'], data['y_um'], x_bin, y_bin)
+    # generate map bins and axes
+    xx, yy, x_bins, y_bins, x_edges, y_edges \
+        = mlib.genMapAxesAndBins(roach_data, x_bin, y_bin)
 
     print("Done.")
 
@@ -155,13 +161,17 @@ def main():
     dir_it = os.path.join(dir_out, f'it_0')
     makeDirs([dir_single, dir_xform], dir_it)
 
+    # start without common mode estimate
+    for roach, data in roach_data.items():
+        data['common_mode'] = 0
+
     # combine maps loop
     # loop over KIDs, generate single maps, combine
     def save_singles_func(kid, data):
         # we can probably return all single maps and then save here?
         np.save(os.path.join(dir_it, dir_single, f"map_kid_{kid}"), data)
     combined_map, shifts_source, source_xy = mlib.combineMapsLoop(
-        roach_data, x_edges, y_edges, 0, save_singles_func)
+        roach_data, xx, yy, x_edges, y_edges, save_singles_func)
 
     # output combined map to file
     if dir_out is not None:
@@ -180,19 +190,14 @@ def main():
 
         # common mode KID loop
         # loop over KIDs, generate common mode
-        common_mode = mlib.commonModeLoop(kids, dat_targs, Ff, dat_align_indices, roach, dir_roach, slice_i, cal_i,
-                                          cal_f, x_um, y_um, x_edges, y_edges, source_xy, combined_map)
-        np.save(os.path.join(dir_it, file_commonmode), common_mode)
+
+        # use a different common_mode for each roach
+        for roach, data in roach_data.items():
+            data['common_mode'] = mlib.commonModeLoop(roach, data, x_edges, y_edges, source_xy, combined_map)
+            np.save(os.path.join(dir_it, file_commonmode(roach)), data['common_mode'])
 
         combined_map, shifts_source, source_xy = mlib.combineMapsLoop(
-            kids, dat_targs, Ff, dat_align_indices, roach, dir_roach, 
-            slice_i, cal_i, cal_f, x_um, y_um, x_edges, y_edges, xx, yy, common_mode,
-            save_singles_func,
-            None)
-
-        # save common mode to file as map
-        cmmap = mlib.buildSingleKIDMap(common_mode, x_um, y_um, x_edges, y_edges)
-        np.save(os.path.join(dir_it, "common_mode_map"), cmmap)
+            roach_data, xx, yy, x_edges, y_edges, save_singles_func)
 
         # output combined map to file
         if dir_out is not None:

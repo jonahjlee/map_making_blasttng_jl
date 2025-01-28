@@ -85,7 +85,7 @@ file_rejects_dict = {
 }
 
 # common-mode file
-# file_commonmode = f'common_mode_roach{roach}.dat'
+file_commonmode = lambda roach: f'common_mode_roach{roach}.dat'
 
 # log file
 log_file = 'map_making.log'
