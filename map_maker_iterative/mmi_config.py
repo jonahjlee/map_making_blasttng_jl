@@ -40,10 +40,6 @@ cal_f   = slice_i + 519_000
 # common-mode loop iterations
 ct_its = 3
 
-# high pass filter cutoff frequency, in spatial scale
-fc_high_scale = 40*psf # deg
-print(f"fc_high_scale={fc_high_scale}")
-
 # base data directories
 dir_root   = '/media/player1/blast2020fc1/fc1/'   # control computer
 dir_conv   = dir_root + "converted/"              # control computer
@@ -67,9 +63,6 @@ elif roach == 4:
 elif roach == 5:
     dir_roach   += 'roach5_2020-01-06-06-22-01/'
     dir_targ    += 'Tue_Jan__7_00_55_51_2020/'
-
-# detector layout file
-file_layout = dir_root + f'map_making/detector_layouts/layout_roach{roach}.csv'
 
 # KID rejects list
 file_rejects = dir_root + f'map_making/kid_rejects/kid_rejects_roach{roach}.dat'
