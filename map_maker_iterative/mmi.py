@@ -177,11 +177,11 @@ def main():
         np.save(os.path.join(dir_it, f"combined_map"),
                 [xx, yy, combined_map])
 
-    print(f"Performing {ct_its} common-mode iterations: ", end="", flush=True)
+    print(f"Performing {ct_its} common-mode iterations: ")
 
     for iteration in range(1, ct_its + 1):
 
-        print(f"Starting iteration {iteration}.", end="", flush=True)
+        print(f"Starting iteration {iteration}.")
 
         # create dir and subdirs for this iteration
         dir_it = os.path.join(dir_out, f'it_{iteration}')
