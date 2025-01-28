@@ -50,7 +50,7 @@ cal_i_offset   = 516_000  # cal lamp
 cal_f_offset   = 519_000
 
 # common-mode loop iterations
-ct_its = 3
+ct_its = 1
 
 # base data directories
 dir_root   = '/media/player1/blast2020fc1/fc1/'   # control computer
