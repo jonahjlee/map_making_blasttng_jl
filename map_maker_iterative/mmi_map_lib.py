@@ -284,9 +284,11 @@ def commonModeLoop(roach, data, x_edges, y_edges, source_xy, combined_map):
         # clean the df tod
         # tod = tlib.cleanTOD(tod)
 
+        kid_id = f'roach{roach}_{kid}'
+
         # remove astronomical signal estimate
         if combined_map is not None:
-            delta_az, delta_el = source_xy[kid]
+            delta_az, delta_el = source_xy[kid_id]
             ast = calcAst(combined_map,
                           data['dat_sliced']['az']+delta_az,
                           data['dat_sliced']['el']+delta_el,
