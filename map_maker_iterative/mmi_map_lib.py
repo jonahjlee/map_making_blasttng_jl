@@ -468,7 +468,7 @@ def combineMapsLoop(roach_data, xx, yy, x_edges, y_edges,
             kid_ids.append(kid_id)
 
             # get the normalized df for this kid
-            tod = tlib.getNormKidDf(data['kid'], data['dat_targs'], data['Ff'], data['dat_align_indices'],
+            tod = tlib.getNormKidDf(kid, data['dat_targs'], data['Ff'], data['dat_align_indices'],
                               roach, data['dir_roach'], data['slice_i'], data['cal_i'], data['cal_f'])
 
             # clean the df tod
