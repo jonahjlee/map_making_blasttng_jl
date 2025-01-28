@@ -33,6 +33,30 @@ def logThis(func):
 # ============================================================================ #
 # loadCommonData
 @logThis
+def loadSlicedData(roach, slice_i, cal_i, dir_master, dir_roach, dir_targ):
+    '''Loads aligned & sliced TODs for the requested observation slice
+    '''
+
+    # load master data
+    dat_raw = loadMasterData(roach, dir_master, dir_roach)
+
+    # load all target sweeps
+    dat_targs, Ff = loadTargSweepsData(dir_targ)
+
+    # temporaly align tods, rebin if necessary
+    dat_aligned, dat_align_indices = alignMasterAndRoachTods(dat_raw)
+
+    # slice tods to desired region (remove cal lamp)
+    dat_sliced = {
+        field: dat_aligned[field][slice_i:cal_i].copy()
+        for field in dat_aligned}
+
+    return dat_targs, Ff, dat_align_indices, dat_sliced
+
+
+# ============================================================================ #
+# loadMasterData
+@logThis
 def loadMasterData(roach, dir_master, dir_roach):
     '''Loads all the common data into memory.
     '''

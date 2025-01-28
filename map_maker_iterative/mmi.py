@@ -28,7 +28,7 @@ import mmi_map_lib as mlib
 
 def main():
 
-    print(f"Creating maps for roach {roach}.")
+    print(f"Creating maps for roaches {roaches}.")
 
 
 # ============================================================================ #
@@ -65,30 +65,18 @@ def main():
 
     print(f"Loading common data... ", end="", flush=True)
 
-    # load master data 
-    dat_raw = dlib.loadMasterData(roach, dir_master, dir_roach)
+    roach_data = {}
+    for roach in roaches:
+        roach_data[roach] = {}
 
-    # load all target sweeps
-    dat_targs, Ff = dlib.loadTargSweepsData(dir_targ)
-
-    # load array layout and pre-calculate map shifts from layout
-    # dat_layout = dlib.abFromLayout(file_layout)
-    # shifts_xy_layout = mlib.xyFromAb(dat_layout, platescale, pixels_per_beam, psf)
-
-    # temporaly align tods, rebin if necessary
-    dat_aligned, dat_align_indices = dlib.alignMasterAndRoachTods(dat_raw)
-
-    # calculate spatial bin diff.
-    ds_tod = dlib.ds(dat_aligned['az'], dat_aligned['el'])
-
-    # slice tods to desired region (remove cal lamp)
-    dat_sliced = {
-        field: dat_aligned[field][slice_i:cal_i].copy()
-        for field in dat_aligned}
-
-    # free memory and force collection (these tods are large)
-    del(dat_raw, dat_aligned)
-    gc.collect()
+    for roach, data in roach_data.items():
+        data['dat_targs'], data['Ff'], data['dat_sliced'], data['dat_align_indices'] = dlib.loadSlicedData(
+            roach,
+            slice_i_dict[roach],
+            slice_i_dict[roach] + cal_i_offset,
+            dir_master,
+            dir_roach_dict[roach],
+            dir_targ_dict[roach])
 
     print("Done.")
 
@@ -99,21 +87,27 @@ def main():
 
     print(f"Building map base and coordinates... ", end="", flush=True)
 
-    # detected source coordinates in az/el telescope frame
-    source_azel = mlib.sourceCoordsAzEl( # (az, el)
-        source_name, 
-        dat_sliced['lat'], dat_sliced['lon'], 
-        dat_sliced['alt'], dat_sliced['time'])
+    for roach, data in roach_data.items():
+        # detected source coordinates in az/el telescope frame
+        source_azel = mlib.sourceCoordsAzEl( # (az, el)
+            source_name,
+            data['dat_sliced']['lat'], data['dat_sliced']['lon'],
+            data['dat_sliced']['alt'], data['dat_sliced']['time'])
 
-    # generate x_az and y_el, the az/el offset tods
-    x_az, y_el = mlib.azElOffsets(source_azel, dat_sliced['az'], dat_sliced['el'])
+        # generate x_az and y_el, the az/el offset tods
+        data['x_az'], data['y_el'] = mlib.azElOffsets(
+            source_azel,
+            data['dat_sliced']['az'],
+            data['dat_sliced']['el']
+        )
 
-    # convert offsets in degrees to um on image plane
-    x_um, y_um = mlib.offsetsTanProj(x_az, y_el, platescale)
+        # convert offsets in degrees to um on image plane
+        data['x_um'], data['y_um'] = mlib.offsetsTanProj(data['x_az'], data['y_el'], platescale)
 
-    # generate map bins and axes
-    xx, yy, x_bins, y_bins, x_edges, y_edges = mlib.genMapAxesAndBins(
-        x_um, y_um, x_bin, y_bin)
+        # generate map bins and axes
+        # TODO: separate roach-specific data from global
+        data['xx'], data['yy'], x_bins, y_bins, x_edges, y_edges \
+            = mlib.genMapAxesAndBins(data['x_um'], data['y_um'], x_bin, y_bin)
 
     print("Done.")
 
@@ -124,25 +118,26 @@ def main():
 
     print(f"Loading KID data... ", end="", flush=True)
 
-    # kids to use
-    kids = dlib.findAllKIDs(dir_roach) # all in dir_roach; sorted
+    for roach, data in roach_data.items():
 
-    # remove unused channels
-    kids = [kid for kid in kids if int(kid) <= kid_max]
+        # kids to use
+        kids = dlib.findAllKIDs(dir_roach_dict[roach]) # all in dir_roach; sorted
 
-    # KID rejects
-    try: # file might not exist
-        kid_rejects = dlib.loadKidRejects(file_rejects)
-        kids = [kid for kid in kids if kid not in kid_rejects]
-    except: pass
+        # remove unused channels
+        kids = [kid for kid in kids if int(kid) <= kid_max_dict[roach]]
 
-    # remove kids not in layout file
-    # kids = [kid for kid in kids if kid in shifts_xy_layout.keys()]
+        # KID rejects
+        try: # file might not exist
+            kid_rejects = dlib.loadKidRejects(file_rejects_dict[roach])
+            kids = [kid for kid in kids if kid not in kid_rejects]
+        except FileNotFoundError: pass
 
-    # move ref kid so it's processed first
-    # this is last so it raises an error if ou`r ref has been removed
-    kids.remove(kid_ref)
-    kids.insert(0, kid_ref)
+        # move ref kid so it's processed first
+        # this is last so it raises an error if our ref has been removed
+        kids.remove(kid_ref_dict[roach])
+        kids.insert(0, kid_ref_dict[roach])
+
+        data['kids'] = kids
 
     print("Done.")
 
@@ -166,11 +161,7 @@ def main():
         # we can probably return all single maps and then save here?
         np.save(os.path.join(dir_it, dir_single, f"map_kid_{kid}"), data)
     combined_map, shifts_source, source_xy = mlib.combineMapsLoop(
-        kids, dat_targs, Ff, dat_align_indices, roach, dir_roach,
-        slice_i, cal_i, cal_f, x_um, y_um, x_edges, y_edges, xx, yy, 0,
-        save_singles_func,
-        None)
-    # shifts_xy_layout)
+        roach_data, x_edges, y_edges, 0, save_singles_func)
 
     # output combined map to file
     if dir_out is not None:
@@ -198,7 +189,6 @@ def main():
             slice_i, cal_i, cal_f, x_um, y_um, x_edges, y_edges, xx, yy, common_mode,
             save_singles_func,
             None)
-            # shifts_xy_layout)
 
         # save common mode to file as map
         cmmap = mlib.buildSingleKIDMap(common_mode, x_um, y_um, x_edges, y_edges)
@@ -212,8 +202,6 @@ def main():
         # save shifts to file
         np.save(os.path.join(dir_it, dir_xform, f'shifts_source.npy'), 
                 shifts_source)
-        # np.save(os.path.join(dir_it, dir_xform, f'shifts_xy_layout.npy'),
-        #         shifts_xy_layout)
 
     print("Done.")
     print(f"Time taken: {timer.deltat()}")

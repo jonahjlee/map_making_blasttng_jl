@@ -455,67 +455,46 @@ def combineMaps(kids, single_maps, shifts):
 # ============================================================================ #
 # combinedMapLoop
 @logThis
-def combineMapsLoop(kids, dat_targs, Ff, dat_align_indices, 
-                    roach, dir_roach, i_i, i_cal, i_f, 
-                    x, y, x_edges, y_edges, xx, yy, common_mode, 
+def combineMapsLoop(roach_data, x_edges, y_edges, common_mode,
                     save_singles_func=None, shifts=None):
     '''Calculate the combined map.
     Computationally and I/O expensive.
-
-    kid: (str) The KID number, e.g. '0001'.
-    dat_targs: (tuple of 2 1D arrays of floats) Target sweep I and Q.
-    Ff: (1D array of floats) Frequency axis for target sweep.
-    dat_align_indices: (list of ints) Indices to align tods.
-    roach: (int) The roach number.
-    dir_roach: (string) The directory that roach data is in.
-    i_i: (int) Desired data first index.
-    i_cal: (int) First index of calibration lamp data.
-    i_f: (int) Final index.
-    x/y: (1D arrays; floats) The time ordered positional data, e.g. az/el.
-    x_edges/y_edges: (1D array of floats) The map bin edges.
-    xx/yy: (2D array of floats) The image data (meshgrid).
-    common_mode: (1D array of floats) The common mode tod.
-    save_singles_func: (func) Handles saving out the single maps.
-    shifts: (1D array of floats) Pixel shift to align maps.
     '''
 
     single_maps = {}
     shifts_source = {}
     source_xy = {}
 
-    for kid in progressbar(kids, "Combining maps: "):
+    for roach, data in roach_data.items():
+        for kid in progressbar(data['kids'], "Combining maps: "):
 
-        # get the normalized df for this kid
-        tod = tlib.getNormKidDf(kid, dat_targs, Ff, dat_align_indices, 
-                          roach, dir_roach, i_i, i_cal, i_f)
+            # get the normalized df for this kid
+            tod = tlib.getNormKidDf(data['kid'], data['dat_targs'], data['Ff'], data['dat_align_indices'],
+                              roach, dir_roach_dict[roach], i_i, i_cal, i_f)
 
-        # clean the df tod
-        tod = tlib.cleanTOD(tod)
+            # clean the df tod
+            tod = tlib.cleanTOD(tod)
 
-        # remove common mode
-        tod_ct_removed = tod - common_mode
+            # remove common mode
+            tod_ct_removed = tod - common_mode
 
-        # high-pass filter
-        # tod = tlib.highpassFilterTOD(tod, fs_tod, fc_high)
+            # build the binned pixel map
+            zz  = buildSingleKIDMap(tod_ct_removed, x, y, x_edges, y_edges)
+            single_maps[kid] = zz
 
-        # build the binned pixel map
-        zz  = buildSingleKIDMap(tod_ct_removed, x, y, x_edges, y_edges)
-        single_maps[kid] = zz
+            # find the source's coords
+            xy = sourceCoords(xx, yy, zz) # x_im, y_im
+            source_xy[kid] = xy
 
+            # find shift required to center source in map
+            shifts_source[kid] = sourceCoordsToPixShift(xy[0], xy[1], xx, yy)
 
-        # find the source's coords
-        xy = sourceCoords(xx, yy, zz) # x_im, y_im
-        source_xy[kid] = xy
+            # use source determined shifts if not given as input
+            shifts = shifts_source if shifts is None else shifts
 
-        # find shift required to center source in map
-        shifts_source[kid] = sourceCoordsToPixShift(xy[0], xy[1], xx, yy)
-
-        # use source determined shifts if not given as input
-        shifts = shifts_source if shifts is None else shifts
-
-        # output single map to file
-        if save_singles_func is not None:
-            save_singles_func(kid, np.array([xx, yy, zz]))
+            # output single map to file
+            if save_singles_func is not None:
+                save_singles_func(kid, np.array([xx, yy, zz]))
 
     # create combined map
     combined_map = combineMaps(kids, single_maps, shifts)
