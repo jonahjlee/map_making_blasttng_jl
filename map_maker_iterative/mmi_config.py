@@ -60,11 +60,11 @@ dir_conv   = dir_root + "converted/"              # control computer
 dir_master = dir_conv + 'master_2020-01-06-06-21-22/'
 
 dir_targ_dict = {
-    1: 'roach_flight/roach1/targ/Tue_Jan__7_00_55_50_2020/',
-    2: 'roach_flight/roach2/targ/Tue_Jan__7_00_55_50_2020/',
-    3: 'roach_flight/roach3/targ/Tue_Jan__7_00_55_51_2020/',
-    4: 'roach_flight/roach4/targ/Tue_Jan__7_00_55_50_2020/',
-    5: 'roach_flight/roach5/targ/Tue_Jan__7_00_55_51_2020/',
+    1: dir_root + 'roach_flight/roach1/targ/Tue_Jan__7_00_55_50_2020/',
+    2: dir_root + 'roach_flight/roach2/targ/Tue_Jan__7_00_55_50_2020/',
+    3: dir_root + 'roach_flight/roach3/targ/Tue_Jan__7_00_55_51_2020/',
+    4: dir_root + 'roach_flight/roach4/targ/Tue_Jan__7_00_55_50_2020/',
+    5: dir_root + 'roach_flight/roach5/targ/Tue_Jan__7_00_55_51_2020/',
 }
 
 dir_roach_dict = {
