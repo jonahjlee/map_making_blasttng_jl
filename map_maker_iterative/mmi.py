@@ -131,10 +131,10 @@ def main():
     kids = [kid for kid in kids if int(kid) <= kid_max]
 
     # KID rejects
-    # try: # file might not exist
-    #     kid_rejects = dlib.loadKidRejects(file_rejects)
-    #     kids = [kid for kid in kids if kid not in kid_rejects]
-    # except: pass
+    try: # file might not exist
+        kid_rejects = dlib.loadKidRejects(file_rejects)
+        kids = [kid for kid in kids if kid not in kid_rejects]
+    except: pass
 
     # remove kids not in layout file
     # kids = [kid for kid in kids if kid in shifts_xy_layout.keys()]
@@ -181,7 +181,7 @@ def main():
 
     for iteration in range(1, ct_its + 1):
 
-        print(f"{iteration} ", end="", flush=True)
+        print(f"Starting iteration {iteration}.", end="", flush=True)
 
         # create dir and subdirs for this iteration
         dir_it = os.path.join(dir_out, f'it_{iteration}')

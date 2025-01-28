@@ -8,6 +8,8 @@
 # ============================================================================ #
 
 
+import sys
+import time
 from typing import NamedTuple
 import functools
 import warnings
@@ -34,6 +36,24 @@ def logThis(func):
     wrapper.logThis = True  # Add an attribute to mark the function
     return wrapper
 
+def progressbar(it, prefix="", size=40, out=sys.stdout): # Python3.6+
+    """
+    source: https://stackoverflow.com/questions/3160699/python-progress-bar
+    """
+    count = len(it)
+    start = time.time() # time estimate start
+    def show(j):
+        x = int(size*j/count)
+        # time estimate calculation and string
+        remaining = ((time.time() - start) / j) * (count - j)
+        mins, sec = divmod(remaining, 60) # limited to minutes
+        time_str = f"{int(mins):02}:{sec:03.1f}"
+        print(f"{prefix}[{u'█'*x}{('.'*(size-x))}] {j}/{count} Est wait {time_str}", end='\r', file=out, flush=True)
+    show(0.1) # avoid div/0
+    for i, item in enumerate(it):
+        yield item
+        show(i+1)
+    print("\n", flush=True, file=out)
 
 
 # ============================================================================ #
@@ -263,7 +283,7 @@ def commonModeLoop(kids, dat_targs, Ff, dat_align_indices,
 
     tod_sum = np.zeros(i_cal - i_i)
 
-    for kid in kids:
+    for kid in progressbar(kids, "Estimating common mode: "):
 
         # get the normalized df for this kid
         tod = tlib.getNormKidDf(kid, dat_targs, Ff, dat_align_indices,
@@ -370,21 +390,6 @@ def azelToMapPix(az, el, x_edges, y_edges):
     indices_x = np.clip(indices_x, 0, len(x_edges) - 2)
     indices_y = np.clip(indices_y, 0, len(y_edges) - 2)
 
-    x_low_clip = indices_x <= 0
-    y_low_clip = indices_y <= 0
-    x_high_clip = indices_x >= len(x_edges) - 2
-    y_high_clip = indices_y >= len(y_edges) - 2
-
-    x_low_clip_frac = np.count_nonzero(x_low_clip) / len(indices_x)
-    y_low_clip_frac = np.count_nonzero(y_low_clip) / len(indices_y)
-    x_high_clip_frac = np.count_nonzero(x_high_clip) / len(indices_x)
-    y_high_clip_frac = np.count_nonzero(y_high_clip) / len(indices_y)
-
-    print(f"x_low: {x_low_clip_frac*100:.1f}%, "
-          f"y_low: {y_low_clip_frac*100:.1f}%, "
-          f"x_high: {x_high_clip_frac*100:.1f}%, "
-          f"y_high: {y_high_clip_frac*100:.1f}%")
-
     return indices_x, indices_y
 
 
@@ -478,7 +483,7 @@ def combineMapsLoop(kids, dat_targs, Ff, dat_align_indices,
     shifts_source = {}
     source_xy = {}
 
-    for kid in kids:
+    for kid in progressbar(kids, "Combining maps: "):
 
         # get the normalized df for this kid
         tod = tlib.getNormKidDf(kid, dat_targs, Ff, dat_align_indices, 
