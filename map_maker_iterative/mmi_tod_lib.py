@@ -176,7 +176,7 @@ def normTod(tod, cal_i, cal_f):
 # ============================================================================ #
 # getNormKidDf
 def getNormKidDf(kid, dat_targs, Ff, dat_align_indices, 
-                roach, dir_roach, i_i, i_cal, i_f):
+                roach, dir_roach, slice_i, slice_f, cal_i, cal_f):
     '''Load, calculate, and calibrate the df tod for a KID.
 
     kid: (str) The KID number, e.g. '0001'.
@@ -185,9 +185,10 @@ def getNormKidDf(kid, dat_targs, Ff, dat_align_indices,
     dat_align_indices: (list of ints) Indices to align tods.
     roach: (int) The roach number.
     dir_roach: (string) The directory that roach data is in.
-    i_i: (int) Desired data first index.
-    i_cal: (int) First index of calibration lamp data.
-    i_f: (int) Final index.
+    slice_i: (int) Desired data first index (inclusive).
+    slice_f: (int) Desired data last index (exclusive).
+    cal_i: (int) First index of calibration lamp data (inclusive).
+    cal_f: (int) Last index of calibration lamp data (exclusive).
     '''
 
     # load I and Q (memmap)
@@ -197,18 +198,18 @@ def getNormKidDf(kid, dat_targs, Ff, dat_align_indices,
     targ = dlib.getTargSweepIQ(kid, dat_targs)
 
     # slice and align (include cal lamp in slice for now)
-    I_slice = I[dat_align_indices[i_i:i_f]] # slicing align indices
-    Q_slice = Q[dat_align_indices[i_i:i_f]]
+    I_slice = I[dat_align_indices[slice_i:cal_f]] # slicing align indices
+    Q_slice = Q[dat_align_indices[slice_i:cal_f]]
 
     # build df tod
     tod = df_IQangle(I_slice, Q_slice, *targ, Ff)
 
     # normalize tod data to calibration lamp
-    tod = normTod(tod, i_cal - i_i, i_f - i_i)
+    tod = normTod(tod, slice_f - slice_i, cal_f - cal_i)
 
-    # slice away calibration region
+    # slice only desired region
     # brings master and roach tods in sync
-    tod = tod[:i_cal - i_i]
+    tod = tod[:slice_f - slice_i]
 
     return tod
 

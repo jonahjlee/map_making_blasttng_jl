@@ -279,7 +279,7 @@ def commonModeLoop(roach, data, x_edges, y_edges, source_xy, combined_map):
 
         # get the normalized df for this kid
         tod = tlib.getNormKidDf(kid, data['dat_targs'], data['Ff'], data['dat_align_indices'],
-                          roach, data['dir_roach'], data['slice_i'], data['cal_i'], data['cal_f'])
+                          roach, data['dir_roach'], data['slice_i'], data['slice_f'], data['cal_i'], data['cal_f'])
 
         # clean the df tod
         # tod = tlib.cleanTOD(tod)
@@ -471,7 +471,7 @@ def combineMapsLoop(roach_data, xx, yy, x_edges, y_edges,
 
             # get the normalized df for this kid
             tod = tlib.getNormKidDf(kid, data['dat_targs'], data['Ff'], data['dat_align_indices'],
-                              roach, data['dir_roach'], data['slice_i'], data['cal_i'], data['cal_f'])
+                              roach, data['dir_roach'], data['slice_i'], data['slice_f'], data['cal_i'], data['cal_f'])
 
             # clean the df tod
             tod = tlib.cleanTOD(tod)

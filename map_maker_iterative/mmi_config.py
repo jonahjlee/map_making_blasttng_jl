@@ -7,8 +7,17 @@
 # Map Maker Iterative configuration options script. 
 # ============================================================================ #
 
+from enum import Enum
 
-roaches = [2, 4, 5]
+roaches = [1]
+
+class ScanPass(Enum):
+    PASS_0 = 0
+    PASS_1 = 1
+    PASS_2 = 2
+    ALL = 3
+
+pass_to_map = ScanPass.PASS_0
 
 maps_to_build = ['DF']  # options: ['A', 'P', 'DF']
 
@@ -37,17 +46,31 @@ kid_ref_dict = {
 # source name for SkyCoord
 source_name = 'RCW 92'
 
-# data indices
+# data indices (old, includes more of the start)
 # scan of object RCW 92
+# slice_i = {1:37_125_750, 2:37_144_000, 3:37_141_250, 4:37_138_750, 5:37_139_000}[roach] # RCW 92
+# cal_i   = slice_i + 516_000 # cal lamp
+# cal_f   = slice_i + 519_000
+
+# data indices (new, starts at top of rectangular scan; see roach_slicing.ipynb)
 slice_i_dict = {
-    1: 37_125_750,
-    2: 37_144_000,
-    3: 37_141_250,
-    4: 37_138_750,
-    5: 37_139_000,
+    1: 37_134_600,
+    2: 37_149_500,
+    3: 37_150_150,
+    4: 37_147_350,
+    5: 37_147_800,
 }
-cal_i_offset   = 516_000  # cal lamp
-cal_f_offset   = 519_000
+
+# index offset for start/end
+# e.g. second pass on roach 2 should be sliced at [37_149_500+169450:37_149_500+340400]
+# pass_indices = [0, 169450, 340400, 511900]
+pass_indices = [0, 169450, 340400, 507100]  # override pass 3 to end before cal lamp
+
+# calibration lamp used to normalize tods
+# note: cal lap turns on before end of pass 3 so it should be cut short
+cal_i_offset = 507100
+cal_f_offset = cal_i_offset + 3000
+
 
 # common-mode loop iterations
 ct_its = 1
