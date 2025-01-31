@@ -84,7 +84,7 @@ def main():
         data['dat_targs'], data['Ff'], data['dat_align_indices'], data['dat_sliced'] = dlib.loadSlicedData(
             roach,
             data['slice_i'],
-            data['cal_i'],
+            cal_i_offset,
             dir_master,
             data['dir_roach'],
             data['dir_targ'])
