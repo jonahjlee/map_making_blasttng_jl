@@ -68,8 +68,8 @@ pass_indices = [0, 169450, 340400, 507100]  # override pass 3 to end before cal 
 
 # calibration lamp used to normalize tods
 # note: cal lap turns on before end of pass 3 so it should be cut short
-cal_i_offset = 507100
-cal_f_offset = cal_i_offset + 3000
+cal_i_offset = 507100  # from slice_i
+cal_f_offset = 3000  # from cal_i
 
 
 # common-mode loop iterations
