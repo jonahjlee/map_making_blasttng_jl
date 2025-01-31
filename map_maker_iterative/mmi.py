@@ -79,7 +79,7 @@ def main():
             data['slice_f'] = data['slice_i'] + pass_indices[pass_to_map.value + 1]
 
         data['cal_i'] = slice_i_dict[roach] + cal_i_offset
-        data['cal_f'] = slice_i_dict[roach] + cal_i_offset
+        data['cal_f'] = slice_i_dict[roach] + cal_f_offset
         data['dir_roach'] = dir_roach_dict[roach]
         data['dir_targ'] = dir_targ_dict[roach]
 
