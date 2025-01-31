@@ -273,7 +273,7 @@ def commonModeLoop(roach, data, cal_i_offset, cal_f_offset, x_edges, y_edges, so
     Computationally and I/O expensive.
     '''
 
-    tod_sum = np.zeros(data['cal_i'] - data['slice_i'])
+    tod_sum = np.zeros(data['slice_f'] - data['slice_i'])
 
     for kid in progressbar(data['kids'], f"Estimating common mode for roach {roach}: "):
 
