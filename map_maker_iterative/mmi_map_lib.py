@@ -268,7 +268,7 @@ def cutoffFrequency(scale, dt, ds):
 # ============================================================================ #
 # commonMode
 @logThis
-def commonModeLoop(roach, data, x_edges, y_edges, source_xy, combined_map):
+def commonModeLoop(roach, data, cal_i_offset, cal_f_offset, x_edges, y_edges, source_xy, combined_map):
     '''Calculate common mode estimate.
     Computationally and I/O expensive.
     '''
@@ -279,7 +279,7 @@ def commonModeLoop(roach, data, x_edges, y_edges, source_xy, combined_map):
 
         # get the normalized df for this kid
         tod = tlib.getNormKidDf(kid, data['dat_targs'], data['Ff'], data['dat_align_indices'],
-                          roach, data['dir_roach'], data['slice_i'], data['slice_f'], data['cal_i'], data['cal_f'])
+                          roach, data['dir_roach'], data['slice_i'], data['slice_f'], cal_i_offset, cal_f_offset, )
 
         # clean the df tod
         # tod = tlib.cleanTOD(tod)
@@ -452,7 +452,7 @@ def combineMaps(kids, single_maps, shifts):
 # ============================================================================ #
 # combinedMapLoop
 @logThis
-def combineMapsLoop(roach_data, xx, yy, x_edges, y_edges,
+def combineMapsLoop(roach_data, cal_i_offset, cal_f_offset, xx, yy, x_edges, y_edges,
                     save_singles_func=None, shifts=None):
     '''Calculate the combined map.
     Computationally and I/O expensive.
@@ -471,7 +471,7 @@ def combineMapsLoop(roach_data, xx, yy, x_edges, y_edges,
 
             # get the normalized df for this kid
             tod = tlib.getNormKidDf(kid, data['dat_targs'], data['Ff'], data['dat_align_indices'],
-                              roach, data['dir_roach'], data['slice_i'], data['slice_f'], data['cal_i'], data['cal_f'])
+                              roach, data['dir_roach'], data['slice_i'], data['slice_f'], cal_i_offset, cal_f_offset)
 
             # clean the df tod
             tod = tlib.cleanTOD(tod)

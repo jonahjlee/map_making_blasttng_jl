@@ -78,8 +78,6 @@ def main():
             data['slice_i'] = slice_i_dict[roach] + pass_indices[pass_to_map.value]
             data['slice_f'] = data['slice_i'] + pass_indices[pass_to_map.value + 1]
 
-        data['cal_i'] = slice_i_dict[roach] + cal_i_offset
-        data['cal_f'] = data['cal_i'] + cal_f_offset
         data['dir_roach'] = dir_roach_dict[roach]
         data['dir_targ'] = dir_targ_dict[roach]
 
@@ -178,7 +176,7 @@ def main():
         # we can probably return all single maps and then save here?
         np.save(os.path.join(dir_it, dir_single, f"map_kid_{kid}"), data)
     combined_map, shifts_source, source_xy = mlib.combineMapsLoop(
-        roach_data, xx, yy, x_edges, y_edges, save_singles_func)
+        roach_data, cal_i_offset, cal_f_offset, xx, yy, x_edges, y_edges, save_singles_func)
 
     # output combined map to file
     if dir_out is not None:
