@@ -205,7 +205,7 @@ def getNormKidDf(kid, dat_targs, Ff, dat_align_indices,
     tod = df_IQangle(I_slice, Q_slice, *targ, Ff)
 
     # normalize tod data to calibration lamp
-    tod = normTod(tod, slice_f - slice_i, cal_f - slice_i)
+    tod = normTod(tod, cal_i - slice_i, cal_f - slice_i)
 
     # slice only desired region
     # brings master and roach tods in sync
