@@ -203,7 +203,7 @@ def main():
             np.save(os.path.join(dir_it, file_commonmode(roach)), data['common_mode'])
 
         combined_map, shifts_source, source_xy = mlib.combineMapsLoop(
-            roach_data, xx, yy, x_edges, y_edges, save_singles_func)
+            roach_data, cal_i_offset, cal_f_offset, xx, yy, x_edges, y_edges, save_singles_func)
 
         # output combined map to file
         if dir_out is not None:
