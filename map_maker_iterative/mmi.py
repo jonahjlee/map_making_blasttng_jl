@@ -73,12 +73,13 @@ def main():
         if pass_to_map == ScanPass.ALL:
             data['slice_i'] = slice_i_dict[roach]
             data['slice_f'] = data['slice_i'] + pass_indices[3]
+
         else:
             data['slice_i'] = slice_i_dict[roach] + pass_indices[pass_to_map.value]
             data['slice_f'] = data['slice_i'] + pass_indices[pass_to_map.value + 1]
 
-        data['cal_i'] = data['slice_i'] + cal_i_offset
-        data['cal_f'] = data['slice_i'] + cal_f_offset
+        data['cal_i'] = slice_i_dict[roach] + cal_i_offset
+        data['cal_f'] = slice_i_dict[roach] + cal_i_offset
         data['dir_roach'] = dir_roach_dict[roach]
         data['dir_targ'] = dir_targ_dict[roach]
 
