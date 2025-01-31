@@ -48,7 +48,7 @@ def loadSlicedData(roach, slice_i, cal_i_offset, dir_master, dir_roach, dir_targ
 
     # slice tods to desired region (remove cal lamp)
     dat_sliced = {
-        field: dat_aligned[field][slice_i:cal_i_offset].copy()
+        field: dat_aligned[field][slice_i:slice_i+cal_i_offset].copy()
         for field in dat_aligned}
 
     return dat_targs, Ff, dat_align_indices, dat_sliced
