@@ -198,7 +198,8 @@ def main():
 
         # use a different common_mode for each roach
         for roach, data in roach_data.items():
-            data['common_mode'] = mlib.commonModeLoop(roach, data, x_edges, y_edges, source_xy, combined_map)
+            data['common_mode'] = mlib.commonModeLoop(
+                roach, data, cal_i_offset, cal_f_offset, x_edges, y_edges, source_xy, combined_map)
             np.save(os.path.join(dir_it, file_commonmode(roach)), data['common_mode'])
 
         combined_map, shifts_source, source_xy = mlib.combineMapsLoop(
