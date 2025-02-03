@@ -17,7 +17,7 @@ class ScanPass(Enum):
     PASS_2 = 2
     ALL = 3
 
-pass_to_map = ScanPass.PASS_0
+pass_to_map = ScanPass.PASS_1
 
 maps_to_build = ['DF']  # options: ['A', 'P', 'DF']
 
