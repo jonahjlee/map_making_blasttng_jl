@@ -268,39 +268,42 @@ def cutoffFrequency(scale, dt, ds):
 # ============================================================================ #
 # commonMode
 @logThis
-def commonModeLoop(roach, data, cal_i_offset, cal_f_offset, x_edges, y_edges, source_xy, combined_map):
+def commonModeLoop(roach_data, cal_i_offset, cal_f_offset, x_edges, y_edges, source_xy, combined_map):
     '''Calculate common mode estimate.
     Computationally and I/O expensive.
     '''
 
-    tod_sum = np.zeros(data['slice_f'] - data['slice_i'])
+    observation_len = roach_data[0]['slice_f'] - roach_data[0]['slice_i']  # same for all roaches
 
-    for kid in progressbar(data['kids'], f"Estimating common mode for roach {roach}: "):
+    tod_sum = np.zeros(observation_len)
+    num_kids = 0
 
-        # get the normalized df for this kid
-        tod = tlib.getNormKidDf(kid, data['dat_targs'], data['Ff'], data['dat_align_indices'],
-                          roach, data['dir_roach'], data['slice_i'], data['slice_f'], cal_i_offset, cal_f_offset, )
+    for roach, data in roach_data.items():
+        for kid in progressbar(data['kids'], f"Estimating common mode for roach {roach}: "):
 
-        # clean the df tod
-        # tod = tlib.cleanTOD(tod)
+            # get the normalized df for this kid
+            tod = tlib.getNormKidDf(kid, data['dat_targs'], data['Ff'], data['dat_align_indices'],
+                                    roach, data['dir_roach'], data['slice_i'], data['slice_f'], cal_i_offset, cal_f_offset, )
 
-        kid_id = f'roach{roach}_{kid}'
+            # clean the df tod
+            # tod = tlib.cleanTOD(tod)
 
-        # remove astronomical signal estimate
-        if combined_map is not None:
-            delta_az, delta_el = source_xy[kid_id]
-            ast = calcAst(combined_map,
-                          data['dat_sliced']['az']+delta_az,
-                          data['dat_sliced']['el']+delta_el,
-                          x_edges, y_edges)
-            tod -= ast
+            kid_id = f'roach{roach}_{kid}'
 
-        # add this tod to summation tod
-        tod_sum += tod
+            # remove astronomical signal estimate
+            if combined_map is not None:
+                delta_az, delta_el = source_xy[kid_id]
+                ast = calcAst(combined_map,
+                              data['dat_sliced']['az']+delta_az,
+                              data['dat_sliced']['el']+delta_el,
+                              x_edges, y_edges)
+                tod -= ast
 
-    common_mode = tod_sum/len(data['kids'])
+            # add this tod to summation tod
+            tod_sum += tod
+            num_kids += len(data['kids'])
 
-    return common_mode
+    return tod_sum / num_kids
 
 
 # ============================================================================ #
