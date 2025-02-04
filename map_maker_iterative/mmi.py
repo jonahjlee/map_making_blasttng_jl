@@ -180,7 +180,7 @@ def main():
 
     # output combined map to file
     if dir_out is not None:
-        np.save(os.path.join(dir_it, f"combined_map"),
+        np.save(os.path.join(dir_it, "combined_map"),
                 [xx, yy, combined_map])
 
     print(f"Performing {ct_its} common-mode iterations: ")
@@ -199,7 +199,7 @@ def main():
         # use a different common_mode for each roach
         common_mode = mlib.commonModeLoop(roach_data, cal_i_offset, cal_f_offset,
                                           x_edges, y_edges, source_xy, combined_map)
-        np.save(dir_it, common_mode)
+        np.save(os.path.join(dir_it, "common_mode"), common_mode)
 
         combined_map, shifts_source, source_xy = mlib.combineMapsLoop(
             roach_data, cal_i_offset, cal_f_offset, xx, yy, x_edges, y_edges, save_singles_func)
