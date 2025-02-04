@@ -448,7 +448,7 @@ def combineMaps(kids, single_maps, shifts):
 
     # combine maps
     # zz_combined = np.nanmean(zz_xformed, axis=0)
-    zz_weights = [1 / np.nanstd(a) for a in zz_xformed]
+    zz_weights = [1 / np.nanvar(a) for a in zz_xformed]
     zz_combined = nanaverage(zz_xformed, axis=0, weights=zz_weights)
 
     return zz_combined
