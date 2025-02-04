@@ -300,8 +300,13 @@ def commonModeLoop(roach_data, cal_i_offset, cal_f_offset, x_edges, y_edges, sou
 
     breakpoint()
 
-    tod_stack = np.stack(all_tods, axis=1)
-    median_ct = np.median(tod_stack, axis=1)
+    median_ct = []
+    for i in progressbar(range(all_tods[0].size), prefix="Computing c(t) median over time: "):
+        kid_vals = []
+        for kid in range(len(all_tods)):
+            kid_vals.append(all_tods[kid][i])
+        median_ct.append(np.median(kid_vals))
+        del kid_vals
 
     return median_ct
 
