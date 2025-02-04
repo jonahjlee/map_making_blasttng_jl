@@ -9,7 +9,7 @@
 
 from enum import Enum
 
-roaches = [2]
+roaches = [2, 4, 5]
 
 class ScanPass(Enum):
     PASS_0 = 0

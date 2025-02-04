@@ -36,23 +36,35 @@ def logThis(func):
     wrapper.logThis = True  # Add an attribute to mark the function
     return wrapper
 
-def progressbar(it, prefix="", size=40, out=sys.stdout): # Python3.6+
+def progressbar(it, prefix="", size=40, out=sys.stdout):  # Python3.6+
     """
     source: https://stackoverflow.com/questions/3160699/python-progress-bar
     """
     count = len(it)
-    start = time.time() # time estimate start
-    def show(j):
-        x = int(size*j/count)
+    start = time.time()  # time estimate start
+
+    def show(j, final=False):
+        x = int(size * j / count)
         # time estimate calculation and string
-        remaining = ((time.time() - start) / j) * (count - j)
-        mins, sec = divmod(remaining, 60) # limited to minutes
-        time_str = f"{int(mins):02}:{sec:03.1f}"
-        print(f"{prefix}[{u'█'*x}{('.'*(size-x))}] {j}/{count} Est wait {time_str}", end='\r', file=out, flush=True)
-    show(0.1) # avoid div/0
+        if final:
+            elapsed = time.time() - start
+            mins, sec = divmod(elapsed, 60)  # limited to minutes
+            time_str = f"{int(mins):02}:{sec:03.1f}"
+            print(f"{prefix}[{u'█' * x}{('.' * (size - x))}] {j}/{count} Time taken {time_str}",
+                  end='\r', file=out, flush=True)
+        else:
+            remaining = ((time.time() - start) / j) * (count - j)
+            mins, sec = divmod(remaining, 60)  # limited to minutes
+            time_str = f"{int(mins):02}:{sec:03.1f}"
+            print(f"{prefix}[{u'█' * x}{('.' * (size - x))}] {j}/{count} Est wait {time_str}",
+                  end='\r', file=out, flush=True)
+
+    show(0.1)  # avoid div/0
     for i, item in enumerate(it):
         yield item
-        show(i+1)
+        show(i + 1)
+
+    show(count, final=True)  # display time taken after loop finishes
     print("\n", flush=True, file=out)
 
 
