@@ -303,7 +303,7 @@ def commonModeLoop(roach_data, cal_i_offset, cal_f_offset, x_edges, y_edges, sou
 
             # add this tod to summation tod
             tod_sum += tod
-            num_kids += len(data['kids'])
+            num_kids += 1
 
     return tod_sum / num_kids
 
