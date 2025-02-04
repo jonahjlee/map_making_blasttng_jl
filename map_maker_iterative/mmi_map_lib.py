@@ -457,7 +457,7 @@ def combineMaps(kids, single_maps, shifts):
 # ============================================================================ #
 # combinedMapLoop
 @logThis
-def combineMapsLoop(roach_data, cal_i_offset, cal_f_offset, xx, yy, x_edges, y_edges,
+def combineMapsLoop(roach_data, cal_i_offset, cal_f_offset, xx, yy, x_edges, y_edges, common_mode,
                     save_singles_func=None, shifts=None):
     '''Calculate the combined map.
     Computationally and I/O expensive.
@@ -482,7 +482,7 @@ def combineMapsLoop(roach_data, cal_i_offset, cal_f_offset, xx, yy, x_edges, y_e
             tod = tlib.cleanTOD(tod)
 
             # remove common mode
-            tod_ct_removed = tod - data['common_mode']
+            tod_ct_removed = tod - common_mode
 
             # build the binned pixel map
             zz  = buildSingleKIDMap(tod_ct_removed, data['x_um'], data['y_um'], x_edges, y_edges)
