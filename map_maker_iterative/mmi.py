@@ -63,7 +63,7 @@ def main():
 #  M LOAD
 # Load and calibrate data common to all KIDs
 
-    print(f"Loading common data... ", end="", flush=True)
+    print(f"Loading common data... ")
 
     roaches = {}
 
