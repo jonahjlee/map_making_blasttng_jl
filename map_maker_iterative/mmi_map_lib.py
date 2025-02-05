@@ -285,7 +285,7 @@ def commonModeLoop(roach_list, cal_i_offset, cal_f_offset, x_edges, y_edges, sou
     Computationally and I/O expensive.
     '''
 
-    arbitrary_roach = roach_list[0]  # same for all roaches
+    arbitrary_roach = next(iter(roach_list))  # same for all roaches
     observation_len = arbitrary_roach.slice_f - arbitrary_roach.slice_i
 
     tod_sum = np.zeros(observation_len)
