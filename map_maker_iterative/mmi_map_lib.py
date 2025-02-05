@@ -280,18 +280,18 @@ def cutoffFrequency(scale, dt, ds):
 # ============================================================================ #
 # commonMode
 @logThis
-def commonModeLoop(roach_list, cal_i_offset, cal_f_offset, x_edges, y_edges, source_xy, combined_map):
+def commonModeLoop(roach_iterable, cal_i_offset, cal_f_offset, x_edges, y_edges, source_xy, combined_map):
     '''Calculate common mode estimate.
     Computationally and I/O expensive.
     '''
 
-    arbitrary_roach = next(iter(roach_list))  # same for all roaches
+    arbitrary_roach = next(iter(roach_iterable))  # same for all roaches
     observation_len = arbitrary_roach.slice_f - arbitrary_roach.slice_i
 
     tod_sum = np.zeros(observation_len)
     num_kids = 0
 
-    for roach in roach_list:
+    for roach in roach_iterable:
         for kid in progressbar(roach.kids, f"Estimating common mode for roach {roach.id}: "):
 
             # get the normalized df for this kid
@@ -469,7 +469,7 @@ def combineMaps(kids, single_maps, shifts):
 # ============================================================================ #
 # combinedMapLoop
 @logThis
-def combineMapsLoop(roach_list, cal_i_offset, cal_f_offset, xx, yy, x_edges, y_edges, common_mode,
+def combineMapsLoop(roach_iterable, cal_i_offset, cal_f_offset, xx, yy, x_edges, y_edges, common_mode,
                     save_singles_func=None, shifts=None):
     '''Calculate the combined map.
     Computationally and I/O expensive.
@@ -480,7 +480,7 @@ def combineMapsLoop(roach_list, cal_i_offset, cal_f_offset, xx, yy, x_edges, y_e
     source_xy = {}
     kid_ids = []
 
-    for roach in roach_list:
+    for roach in roach_iterable:
         for kid in progressbar(roach.kids, f"Building maps for roach {roach.id}: "):
 
             kid_id = f'roach{roach.id}_{kid}'
