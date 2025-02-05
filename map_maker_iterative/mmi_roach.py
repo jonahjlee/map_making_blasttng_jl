@@ -48,8 +48,10 @@ class Roach:
     @property
     def info(self) -> str:
         """Summary of info for this Roach."""
-        pass_info = "all passes" if self.scan_pass == ScanPass.ALL \
-            else f"pass {self.scan_pass.value + 1}/3"
+        if self.scan_pass == ScanPass.ALL:
+            pass_info = "all passes"
+        else:
+            pass_info = f"pass {self.scan_pass.value + 1}/3"
 
         return (f"roach {self.id} {pass_info}:"
                 f"\n    dir_roach: {self.dir_roach}"
@@ -90,10 +92,10 @@ class Roach:
 
         if self.scan_pass == ScanPass.ALL:
             slice_i = slice_i_dict[self.id]
-            slice_f = slice_i + pass_indices[ScanPass.ALL.value]
+            slice_f = slice_i_dict[self.id] + pass_indices[-1]
         else:
             slice_i  = slice_i_dict[self.id] + pass_indices[self.scan_pass.value]
-            slice_f = slice_i + pass_indices[self.scan_pass.value + 1]
+            slice_f = slice_i_dict[self.id] + pass_indices[self.scan_pass.value + 1]
 
         return slice_i, slice_f
 
