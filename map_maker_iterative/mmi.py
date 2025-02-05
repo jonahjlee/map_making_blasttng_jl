@@ -28,7 +28,7 @@ import mmi_map_lib as mlib
 
 def main():
 
-    print(f"Creating maps for roaches {roach_ids}.")
+    print(f"Creating maps for {[r.name for r in roach_ids]}.")
 
 
 # ============================================================================ #
