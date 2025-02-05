@@ -1,7 +1,17 @@
+# ============================================================================ #
+# mmi_roach.py
+#
+# Jonah Lee
+#
+# Map Maker Iterative Roach Class
+# Object representation of BLAST-TNG ROACH.
+# Computes and provides access to roach data for a specified pass of RCW-92.
+# ============================================================================ #
+
 import numpy as np
 from mmi_config import (ScanPass, slice_i_dict, pass_indices, dir_roach_dict,
-                        dir_targ_dict, dir_master,
-                        source_name, platescale, RoachID, kid_ref_dict, kid_max_dict, file_rejects_dict)
+                        dir_targ_dict, dir_master, source_name, platescale,
+                        RoachID, kid_ref_dict, kid_max_dict, file_rejects_dict)
 import mmi_data_lib as dlib
 import mmi_map_lib as mlib
 
@@ -9,10 +19,10 @@ import mmi_map_lib as mlib
 class Roach:
     """Object representation of BLAST-TNG ROACH.
 
-    Provides access to roach data for a specified pass of RCW-92.
+    Computes and provides access to roach data for a specified pass of RCW-92.
     """
 
-    def __init__(self, roach_id: RoachID, scan_pass: ScanPass):
+    def __init__(self, roach_id:  RoachID, scan_pass: ScanPass):
         self.roach_id = roach_id
         self.id = roach_id.value
         self.scan_pass: ScanPass = scan_pass
@@ -34,6 +44,22 @@ class Roach:
         self.x_um, self.y_um = mlib.offsetsTanProj(self.x_az, self.y_el, platescale)
 
         self.kids = self._load_kids()
+
+    @property
+    def info(self) -> str:
+        """Summary of info for this Roach."""
+        pass_info = "all passes" if self.scan_pass == ScanPass.ALL \
+            else f"pass {self.scan_pass.value + 1}/3"
+
+        return (f"roach {self.id} {pass_info}:"
+                f"\n    dir_roach: {self.dir_roach}"
+                f"\n    dir_targ: {self.dir_targ}"
+                f"\n    kid_ref: {self.kid_ref}"
+                f"\n    kid_max: {self.kid_max}"
+                f"\n    file_rejects: {self.file_rejects}"
+                f"\n    slice_i: {self.slice_i}"
+                f"\n    slice_f: {self.slice_f}"
+                f"\n    # of kids: {len(self.kids)}")
 
     def _load_kids(self):
         # kids to use

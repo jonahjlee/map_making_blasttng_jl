@@ -69,6 +69,8 @@ def main():
 
     for roach_id in roach_ids:
         roaches[roach_id] = Roach(roach_id, pass_to_map)
+        log.info(roaches[roach_id].info)
+        print(roaches[roach_id].info)
 
     # trigger common data loading
     # for roach in roaches.values():
