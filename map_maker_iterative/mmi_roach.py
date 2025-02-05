@@ -31,7 +31,7 @@ class Roach:
         self._dat_sliced = None
 
         self.x_az, self.y_el = self._az_el_offsets()
-        self.x_um, self.y_um = mlib.offsetsTanProj(self.x_az, self.x_az, platescale)
+        self.x_um, self.y_um = mlib.offsetsTanProj(self.x_az, self.y_el, platescale)
 
         self.kids = self._load_kids()
 
