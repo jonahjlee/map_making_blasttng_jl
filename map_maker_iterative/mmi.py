@@ -17,6 +17,7 @@ import numpy as np
 
 from mmi_config import *
 import mmi_data_lib as dlib
+from mmi_roach import Roach
 # import mmi_tod_lib as tlib
 import mmi_map_lib as mlib
 
@@ -27,7 +28,7 @@ import mmi_map_lib as mlib
 
 def main():
 
-    print(f"Creating maps for roaches {roaches}.")
+    print(f"Creating maps for roaches {roach_ids}.")
 
 
 # ============================================================================ #
@@ -64,31 +65,15 @@ def main():
 
     print(f"Loading common data... ", end="", flush=True)
 
-    roach_data = {}
-    for roach in roaches:
-        roach_data[roach] = {}
+    roaches = {}
 
-    for roach, data in roach_data.items():
+    for roach_id in roach_ids:
+        roaches[roach_id] = Roach(roach_id, pass_to_map)
 
-        if pass_to_map == ScanPass.ALL:
-            data['slice_i'] = slice_i_dict[roach]
-            data['slice_f'] = data['slice_i'] + pass_indices[3]
-
-        else:
-            data['slice_i'] = slice_i_dict[roach] + pass_indices[pass_to_map.value]
-            data['slice_f'] = data['slice_i'] + pass_indices[pass_to_map.value + 1]
-
-        data['dir_roach'] = dir_roach_dict[roach]
-        data['dir_targ'] = dir_targ_dict[roach]
-
-        data['dat_targs'], data['Ff'], data['dat_align_indices'], data['dat_sliced'] = dlib.loadSlicedData(
-            roach,
-            data['slice_i'],
-            data['slice_f'],
-            dir_master,
-            data['dir_roach'],
-            data['dir_targ'])
-
+    # trigger common data loading
+    # for roach in roaches.values():
+    #     roach._load_master_data()
+    #     roach._load_target_sweeps()
 
     print("Done.")
 
@@ -97,28 +82,11 @@ def main():
 #  M COORDS
 # Map coordinates and axis arrays
 
-    print(f"Building map base and coordinates... ", end="", flush=True)
-
-    for roach, data in roach_data.items():
-        # detected source coordinates in az/el telescope frame
-        source_azel = mlib.sourceCoordsAzEl( # (az, el)
-            source_name,
-            data['dat_sliced']['lat'], data['dat_sliced']['lon'],
-            data['dat_sliced']['alt'], data['dat_sliced']['time'])
-
-        # generate x_az and y_el, the az/el offset tods
-        data['x_az'], data['y_el'] = mlib.azElOffsets(
-            source_azel,
-            data['dat_sliced']['az'],
-            data['dat_sliced']['el']
-        )
-
-        # convert offsets in degrees to um on image plane
-        data['x_um'], data['y_um'] = mlib.offsetsTanProj(data['x_az'], data['y_el'], platescale)
+    print(f"Building map base... ", end="", flush=True)
 
     # generate map bins and axes
     xx, yy, x_bins, y_bins, x_edges, y_edges \
-        = mlib.genMapAxesAndBins(roach_data, x_bin, y_bin)
+        = mlib.genMapAxesAndBins(roaches.values(), x_bin, y_bin)
 
     print("Done.")
 
@@ -129,26 +97,7 @@ def main():
 
     print(f"Loading KID data... ", end="", flush=True)
 
-    for roach, data in roach_data.items():
-
-        # kids to use
-        kids = dlib.findAllKIDs(dir_roach_dict[roach]) # all in dir_roach; sorted
-
-        # remove unused channels
-        kids = [kid for kid in kids if int(kid) <= kid_max_dict[roach]]
-
-        # KID rejects
-        try: # file might not exist
-            kid_rejects = dlib.loadKidRejects(file_rejects_dict[roach])
-            kids = [kid for kid in kids if kid not in kid_rejects]
-        except FileNotFoundError: pass
-
-        # move ref kid so it's processed first
-        # this is last so it raises an error if our ref has been removed
-        kids.remove(kid_ref_dict[roach])
-        kids.insert(0, kid_ref_dict[roach])
-
-        data['kids'] = kids
+    # moved into Roach.__init__ / Roach._load_kids()
 
     print("Done.")
 
@@ -166,17 +115,20 @@ def main():
     dir_it = os.path.join(dir_out, f'it_0')
     makeDirs([dir_single, dir_xform], dir_it)
 
-    # start without common mode estimate
-    for roach, data in roach_data.items():
-        data['common_mode'] = 0
-
     # combine maps loop
     # loop over KIDs, generate single maps, combine
     def save_singles_func(kid, data):
         # we can probably return all single maps and then save here?
         np.save(os.path.join(dir_it, dir_single, f"map_kid_{kid}"), data)
+
     combined_map, shifts_source, source_xy = mlib.combineMapsLoop(
-        roach_data, cal_i_offset, cal_f_offset, xx, yy, x_edges, y_edges, 0, save_singles_func)
+        roaches.values(),
+        cal_i_offset, cal_f_offset,
+        xx, yy,
+        x_edges, y_edges,
+        0,
+        save_singles_func
+    )
 
     # output combined map to file
     if dir_out is not None:
@@ -195,14 +147,23 @@ def main():
 
         # common mode KID loop
         # loop over KIDs, generate common mode
-
-        # use a different common_mode for each roach
-        common_mode = mlib.commonModeLoop(roach_data, cal_i_offset, cal_f_offset,
-                                          x_edges, y_edges, source_xy, combined_map)
+        common_mode = mlib.commonModeLoop(
+            roaches.values(),
+            cal_i_offset, cal_f_offset,
+            x_edges, y_edges,
+            source_xy,
+            combined_map
+        )
         np.save(os.path.join(dir_it, "common_mode"), common_mode)
 
         combined_map, shifts_source, source_xy = mlib.combineMapsLoop(
-            roach_data, cal_i_offset, cal_f_offset, xx, yy, x_edges, y_edges, common_mode, save_singles_func)
+            roaches.values(),
+            cal_i_offset, cal_f_offset,
+            xx, yy,
+            x_edges, y_edges,
+            common_mode,
+            save_singles_func
+        )
 
         # output combined map to file
         if dir_out is not None:

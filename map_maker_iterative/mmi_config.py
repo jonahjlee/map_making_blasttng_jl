@@ -9,13 +9,20 @@
 
 from enum import Enum
 
-roaches = [2, 4, 5]
-
 class ScanPass(Enum):
     PASS_0 = 0
     PASS_1 = 1
     PASS_2 = 2
     ALL = 3
+
+class RoachID(Enum):
+    ROACH_1 = 1
+    ROACH_3 = 3
+    ROACH_2 = 2
+    ROACH_4 = 4
+    ROACH_5 = 5
+
+roach_ids = [RoachID(2), RoachID(4), RoachID(5)]
 
 pass_to_map = ScanPass.PASS_1
 

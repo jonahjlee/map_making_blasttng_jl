@@ -212,17 +212,17 @@ def xyFromAb(ab, platescale, pixels_per_beam, psf):
 # ============================================================================ #
 # genMapAxesAndBins
 @logThis
-def genMapAxesAndBins(roach_data, x_bin, y_bin):
+def genMapAxesAndBins(roach_list, x_bin, y_bin):
     '''Generate the 1D bin/edge arrays and 2D map arrays.
 
     x, y: (1D array; floats) x,y tods, e.g. az/el.
     x_bin, y_bin: (float) x/y bin size for map.
     '''
 
-    max_x = np.max([data['x_um'] for data in roach_data.values()])
-    max_y = np.max([data['y_um'] for data in roach_data.values()])
-    min_x = np.min([data['x_um'] for data in roach_data.values()])
-    min_y = np.min([data['y_um'] for data in roach_data.values()])
+    max_x = np.max([roach.x_um for roach in roach_list])
+    max_y = np.max([roach.y_um for roach in roach_list])
+    min_x = np.min([roach.x_um for roach in roach_list])
+    min_y = np.min([roach.y_um for roach in roach_list])
 
     # generate map bin arrays
     x_bins = np.arange(min_x, max_x, x_bin)
@@ -280,36 +280,36 @@ def cutoffFrequency(scale, dt, ds):
 # ============================================================================ #
 # commonMode
 @logThis
-def commonModeLoop(roach_data, cal_i_offset, cal_f_offset, x_edges, y_edges, source_xy, combined_map):
+def commonModeLoop(roach_list, cal_i_offset, cal_f_offset, x_edges, y_edges, source_xy, combined_map):
     '''Calculate common mode estimate.
     Computationally and I/O expensive.
     '''
 
-    # same for all roaches, so we choose the first one
-    arbitrary_roach_dict = next(iter(roach_data.values()))
-    observation_len = arbitrary_roach_dict['slice_f'] - arbitrary_roach_dict['slice_i']
+    arbitrary_roach = roach_list[0]  # same for all roaches
+    observation_len = arbitrary_roach.slice_f - arbitrary_roach.slice_i
 
     tod_sum = np.zeros(observation_len)
     num_kids = 0
 
-    for roach, data in roach_data.items():
-        for kid in progressbar(data['kids'], f"Estimating common mode for roach {roach}: "):
+    for roach in roach_list:
+        for kid in progressbar(roach.kids, f"Estimating common mode for roach {roach.id}: "):
 
             # get the normalized df for this kid
-            tod = tlib.getNormKidDf(kid, data['dat_targs'], data['Ff'], data['dat_align_indices'],
-                                    roach, data['dir_roach'], data['slice_i'], data['slice_f'], cal_i_offset, cal_f_offset, )
+            tod = tlib.getNormKidDf(kid, roach.dat_targs, roach.Ff, roach.dat_align_indices,
+                                    roach.id, roach.dir_roach, roach.slice_i, roach.slice_f,
+                                    cal_i_offset, cal_f_offset)
 
             # clean the df tod
             # tod = tlib.cleanTOD(tod)
 
-            kid_id = f'roach{roach}_{kid}'
+            kid_id = f'roach{roach.id}_{kid}'
 
             # remove astronomical signal estimate
             if combined_map is not None:
                 delta_az, delta_el = source_xy[kid_id]
                 ast = calcAst(combined_map,
-                              data['dat_sliced']['az']+delta_az,
-                              data['dat_sliced']['el']+delta_el,
+                              roach.dat_sliced['az'] + delta_az,
+                              roach.dat_sliced['el'] + delta_el,
                               x_edges, y_edges)
                 tod -= ast
 
@@ -469,7 +469,7 @@ def combineMaps(kids, single_maps, shifts):
 # ============================================================================ #
 # combinedMapLoop
 @logThis
-def combineMapsLoop(roach_data, cal_i_offset, cal_f_offset, xx, yy, x_edges, y_edges, common_mode,
+def combineMapsLoop(roach_list, cal_i_offset, cal_f_offset, xx, yy, x_edges, y_edges, common_mode,
                     save_singles_func=None, shifts=None):
     '''Calculate the combined map.
     Computationally and I/O expensive.
@@ -480,15 +480,16 @@ def combineMapsLoop(roach_data, cal_i_offset, cal_f_offset, xx, yy, x_edges, y_e
     source_xy = {}
     kid_ids = []
 
-    for roach, data in roach_data.items():
-        for kid in progressbar(data['kids'], f"Building maps for roach {roach}: "):
+    for roach in roach_list:
+        for kid in progressbar(roach.kids, f"Building maps for roach {roach.id}: "):
 
-            kid_id = f'roach{roach}_{kid}'
+            kid_id = f'roach{roach.id}_{kid}'
             kid_ids.append(kid_id)
 
             # get the normalized df for this kid
-            tod = tlib.getNormKidDf(kid, data['dat_targs'], data['Ff'], data['dat_align_indices'],
-                              roach, data['dir_roach'], data['slice_i'], data['slice_f'], cal_i_offset, cal_f_offset)
+            tod = tlib.getNormKidDf(kid, roach.dat_targs, roach.Ff, roach.dat_align_indices,
+                                    roach.id, roach.dir_roach, roach.slice_i, roach.slice_f,
+                                    cal_i_offset, cal_f_offset)
 
             # clean the df tod
             tod = tlib.cleanTOD(tod)
@@ -497,7 +498,7 @@ def combineMapsLoop(roach_data, cal_i_offset, cal_f_offset, xx, yy, x_edges, y_e
             tod_ct_removed = tod - common_mode
 
             # build the binned pixel map
-            zz  = buildSingleKIDMap(tod_ct_removed, data['x_um'], data['y_um'], x_edges, y_edges)
+            zz  = buildSingleKIDMap(tod_ct_removed, roach.x_um, roach.y_um, x_edges, y_edges)
             single_maps[kid_id] = zz
 
             # find the source's coords

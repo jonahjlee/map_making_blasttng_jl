@@ -1,17 +1,9 @@
 import numpy as np
-from enum import Enum
 from mmi_config import (ScanPass, slice_i_dict, pass_indices, dir_roach_dict,
-                        dir_targ_dict, kid_ref_dict, kid_max_dict, dir_master,
-                        source_name, platescale)
+                        dir_targ_dict, dir_master,
+                        source_name, platescale, RoachID, kid_ref_dict, kid_max_dict, file_rejects_dict)
 import mmi_data_lib as dlib
 import mmi_map_lib as mlib
-
-class RoachID(Enum):
-    ROACH_1 = 1
-    ROACH_3 = 3
-    ROACH_2 = 2
-    ROACH_4 = 4
-    ROACH_5 = 5
 
 
 class Roach:
@@ -27,6 +19,9 @@ class Roach:
 
         self.dir_roach = dir_roach_dict[self.id]
         self.dir_targ = dir_targ_dict[self.id]
+        self.kid_ref = kid_ref_dict[self.id]
+        self.kid_max = kid_max_dict[self.id]
+        self.file_rejects = file_rejects_dict[self.id]
 
         self.slice_i, self.slice_f = self._get_slice_interval()
 
@@ -37,6 +32,29 @@ class Roach:
 
         self.x_az, self.y_el = self._az_el_offsets()
         self._x_um, self._y_um = mlib.offsetsTanProj(self.x_az, self.x_az, platescale)
+
+        self.kids = self._load_kids()
+
+    def _load_kids(self):
+        # kids to use
+        kids = dlib.findAllKIDs(self.dir_roach)  # all in dir_roach; sorted
+
+        # remove unused channels
+        kids = [kid for kid in kids if int(kid) <= self.kid_max]
+
+        # KID rejects
+        try:  # file might not exist
+            kid_rejects = dlib.loadKidRejects(self.file_rejects)
+            kids = [kid for kid in kids if kid not in kid_rejects]
+        except FileNotFoundError:
+            pass
+
+        # move ref kid so it's processed first
+        # this is last so it raises an error if our ref has been removed
+        kids.remove(self.kid_ref)
+        kids.insert(0, self.kid_ref)
+
+        return kids
 
     def _get_slice_interval(self) -> tuple[int, int]:
         """Determines the starting and ending indices of the desired slice for this ROACH.
