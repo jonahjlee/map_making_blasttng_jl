@@ -50,18 +50,20 @@ class Roach:
         """Summary of info for this Roach."""
         if self.scan_pass == ScanPass.ALL:
             pass_info = "all passes"
+        elif self.scan_pass == ScanPass.PASS_1_2:
+            pass_info = "pass 1 and 2"
         else:
             pass_info = f"pass {self.scan_pass.value + 1}/3"
 
         return (f"roach {self.id} {pass_info}:"
-                f"\n    dir_roach: {self.dir_roach}"
-                f"\n    dir_targ: {self.dir_targ}"
-                f"\n    kid_ref: {self.kid_ref}"
-                f"\n    kid_max: {self.kid_max}"
-                f"\n    file_rejects: {self.file_rejects}"
                 f"\n    slice_i: {self.slice_i}"
                 f"\n    slice_f: {self.slice_f}"
-                f"\n    # of kids: {len(self.kids)}")
+                f"\n    # of kids: {len(self.kids)}"
+                f"\n    kid_max: {self.kid_max}"
+                f"\n    kid_ref: {self.kid_ref}"
+                f"\n    dir_roach: {self.dir_roach}"
+                f"\n    dir_targ: {self.dir_targ}"
+                f"\n    file_rejects: {self.file_rejects}")
 
     def _load_kids(self):
         # kids to use
@@ -91,11 +93,14 @@ class Roach:
         """
 
         if self.scan_pass == ScanPass.ALL:
-            slice_i = slice_i_dict[self.id]
-            slice_f = slice_i_dict[self.id] + pass_indices[-1]
+            slice_i = slice_i_dict[self.id] + pass_indices[ScanPass.PASS_0.value]  # pass 0 start
+            slice_f = slice_i_dict[self.id] + pass_indices[ScanPass.PASS_2.value + 1]  # pass 2 end
+        elif self.scan_pass == ScanPass.PASS_1_2:
+            slice_i = slice_i_dict[self.id] + pass_indices[ScanPass.PASS_1.value]  # pass 1 start
+            slice_f = slice_i_dict[self.id] + pass_indices[ScanPass.PASS_2.value + 1]  # pass 2 end
         else:
-            slice_i  = slice_i_dict[self.id] + pass_indices[self.scan_pass.value]
-            slice_f = slice_i_dict[self.id] + pass_indices[self.scan_pass.value + 1]
+            slice_i  = slice_i_dict[self.id] + pass_indices[self.scan_pass.value]  # pass start
+            slice_f = slice_i_dict[self.id] + pass_indices[self.scan_pass.value + 1]  # pass end
 
         return slice_i, slice_f
 

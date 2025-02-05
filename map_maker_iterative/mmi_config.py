@@ -13,7 +13,8 @@ class ScanPass(Enum):
     PASS_0 = 0
     PASS_1 = 1
     PASS_2 = 2
-    ALL = 3
+    ALL = 3       # PASS_0 + PASS_1 + PASS_2
+    PASS_1_2 = 4  # PASS_1 + PASS_2
 
 class RoachID(Enum):
     ROACH_1 = 1
@@ -22,9 +23,18 @@ class RoachID(Enum):
     ROACH_4 = 4
     ROACH_5 = 5
 
-roach_ids = [RoachID.ROACH_1]
+roach_ids = [
+    # RoachID.ROACH_1,
+    RoachID.ROACH_2,
+    # RoachID.ROACH_3,
+    RoachID.ROACH_4,
+    RoachID.ROACH_5,
+]
 
-pass_to_map = ScanPass.PASS_0
+pass_to_map = ScanPass.PASS_1_2
+
+# common-mode loop iterations
+ct_its = 2
 
 maps_to_build = ['DF']  # options: ['A', 'P', 'DF']
 
@@ -78,9 +88,12 @@ pass_indices = [0, 169450, 340400, 507100]  # override pass 3 to end before cal 
 cal_i_offset = 507100  # from slice_i
 cal_f_offset = cal_i_offset + 3000  # from cal_i
 
+# first unused KID channel (2469 total used channels)
+kid_max_dict = {1:380, 2:473, 3:667, 4:497, 5:450}
 
-# common-mode loop iterations
-ct_its = 2
+# TOD peak properties for find_peaks for source search
+peak_s = 3   # prominence [multiple of noise]
+peak_w = 100 # width [indices]
 
 # base data directories
 dir_root   = '/media/player1/blast2020fc1/fc1/'   # control computer
@@ -127,10 +140,3 @@ dir_single = 'single_maps/'
 dir_xform = 'align/'
 # file_xform = dir_xform + f'align_roach{roach}.npy'
 # file_source_coords = dir_xform + f'source_coords_roach{roach}.npy'
-
-# first unused KID channel (2469 total used channels)
-kid_max_dict = {1:380, 2:473, 3:667, 4:497, 5:450}
-
-# TOD peak properties for find_peaks for source search
-peak_s = 3   # prominence [multiple of noise]
-peak_w = 100 # width [indices]
