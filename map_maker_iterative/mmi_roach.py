@@ -133,7 +133,7 @@ class Roach:
     def dat_sliced(self):
         if self._dat_sliced is None:
             self._load_master_data()
-        return self.dat_sliced
+        return self._dat_sliced
 
 
 if __name__ == '__main__':
