@@ -36,23 +36,35 @@ def logThis(func):
     wrapper.logThis = True  # Add an attribute to mark the function
     return wrapper
 
-def progressbar(it, prefix="", size=40, out=sys.stdout): # Python3.6+
+def progressbar(it, prefix="", size=40, out=sys.stdout):  # Python3.6+
     """
     source: https://stackoverflow.com/questions/3160699/python-progress-bar
     """
     count = len(it)
-    start = time.time() # time estimate start
-    def show(j):
-        x = int(size*j/count)
+    start = time.time()  # time estimate start
+
+    def show(j, final=False):
+        x = int(size * j / count)
         # time estimate calculation and string
-        remaining = ((time.time() - start) / j) * (count - j)
-        mins, sec = divmod(remaining, 60) # limited to minutes
-        time_str = f"{int(mins):02}:{sec:03.1f}"
-        print(f"{prefix}[{u'█'*x}{('.'*(size-x))}] {j}/{count} Est wait {time_str}", end='\r', file=out, flush=True)
-    show(0.1) # avoid div/0
+        if final:
+            elapsed = time.time() - start
+            mins, sec = divmod(elapsed, 60)  # limited to minutes
+            time_str = f"{int(mins):02}:{sec:03.1f}"
+            print(f"{prefix}[{u'█' * x}{('.' * (size - x))}] {j}/{count} Time taken {time_str}",
+                  end='\r', file=out, flush=True)
+        else:
+            remaining = ((time.time() - start) / j) * (count - j)
+            mins, sec = divmod(remaining, 60)  # limited to minutes
+            time_str = f"{int(mins):02}:{sec:03.1f}"
+            print(f"{prefix}[{u'█' * x}{('.' * (size - x))}] {j}/{count} Est wait {time_str}",
+                  end='\r', file=out, flush=True)
+
+    show(0.1)  # avoid div/0
     for i, item in enumerate(it):
         yield item
-        show(i+1)
+        show(i + 1)
+
+    show(count, final=True)  # display time taken after loop finishes
     print("\n", flush=True, file=out)
 
 
@@ -200,20 +212,25 @@ def xyFromAb(ab, platescale, pixels_per_beam, psf):
 # ============================================================================ #
 # genMapAxesAndBins
 @logThis
-def genMapAxesAndBins(x, y, x_bin, y_bin):
+def genMapAxesAndBins(roach_list, x_bin, y_bin):
     '''Generate the 1D bin/edge arrays and 2D map arrays.
 
     x, y: (1D array; floats) x,y tods, e.g. az/el.
     x_bin, y_bin: (float) x/y bin size for map.
     '''
 
+    max_x = np.max([roach.x_um for roach in roach_list])
+    max_y = np.max([roach.y_um for roach in roach_list])
+    min_x = np.min([roach.x_um for roach in roach_list])
+    min_y = np.min([roach.y_um for roach in roach_list])
+
     # generate map bin arrays
-    x_bins = np.arange(np.min(x), np.max(x), x_bin)
-    y_bins = np.arange(np.min(y), np.max(y), y_bin)
+    x_bins = np.arange(min_x, max_x, x_bin)
+    y_bins = np.arange(min_y, max_y, y_bin)
 
     # generate map bin edge arrays
-    x_edges = np.arange(np.min(x), np.max(x) + x_bin, x_bin)
-    y_edges = np.arange(np.min(y), np.max(y) + y_bin, y_bin)
+    x_edges = np.arange(min_x, max_x + x_bin, x_bin)
+    y_edges = np.arange(min_y, max_y + y_bin, y_bin)
 
     # generate meshgrid 2D map bin arrays
     xx, yy = np.meshgrid(x_bins, y_bins)
@@ -263,47 +280,44 @@ def cutoffFrequency(scale, dt, ds):
 # ============================================================================ #
 # commonMode
 @logThis
-def commonModeLoop(kids, dat_targs, Ff, dat_align_indices,
-                   roach, dir_roach, i_i, i_cal, i_f,
-                   az, el, x_edges, y_edges, source_xy, combined_map):
+def commonModeLoop(roach_iterable, cal_i_offset, cal_f_offset, x_edges, y_edges, source_xy, combined_map):
     '''Calculate common mode estimate.
     Computationally and I/O expensive.
-
-    kid: (str) The KID number, e.g. '0001'.
-    dat_targs: (tuple of 2 1D arrays of floats) Target sweep I and Q.
-    Ff: (1D array of floats) Frequency axis for target sweep.
-    dat_align_indices: (list of ints) Indices to align tods.
-    roach: (int) The roach number.
-    dir_roach: (string) The directory that roach data is in.
-    i_i: (int) Desired data first index.
-    i_cal: (int) First index of calibration lamp data.
-    i_f: (int) Final index.
-    combined_map: (2D array of floats) Map including all KID data.
     '''
 
-    tod_sum = np.zeros(i_cal - i_i)
+    arbitrary_roach = next(iter(roach_iterable))  # same for all roaches
+    observation_len = arbitrary_roach.slice_f - arbitrary_roach.slice_i
 
-    for kid in progressbar(kids, "Estimating common mode: "):
+    tod_sum = np.zeros(observation_len)
+    num_kids = 0
 
-        # get the normalized df for this kid
-        tod = tlib.getNormKidDf(kid, dat_targs, Ff, dat_align_indices,
-                          roach, dir_roach, i_i, i_cal, i_f)
+    for roach in roach_iterable:
+        for kid in progressbar(roach.kids, f"Estimating common mode for roach {roach.id}: "):
 
-        # clean the df tod
-        # tod = tlib.cleanTOD(tod)
+            # get the normalized df for this kid
+            tod = tlib.getNormKidDf(kid, roach.dat_targs, roach.Ff, roach.dat_align_indices,
+                                    roach.id, roach.dir_roach, roach.slice_i, roach.slice_f,
+                                    cal_i_offset, cal_f_offset)
 
-        # remove astronomical signal estimate
-        if combined_map is not None:
-            Δaz, Δel = source_xy[kid]
-            ast = calcAst(combined_map, az+Δaz, el+Δel, x_edges, y_edges)
-            tod -= ast
+            # clean the df tod
+            # tod = tlib.cleanTOD(tod)
 
-        # add this tod to summation tod
-        tod_sum += tod
+            kid_id = f'roach{roach.id}_{kid}'
 
-    commonmode = tod_sum/len(kids)
+            # remove astronomical signal estimate
+            if combined_map is not None:
+                delta_az, delta_el = source_xy[kid_id]
+                ast = calcAst(combined_map,
+                              roach.dat_sliced['az'] + delta_az,
+                              roach.dat_sliced['el'] + delta_el,
+                              x_edges, y_edges)
+                tod -= ast
 
-    return commonmode
+            # add this tod to summation tod
+            tod_sum += tod
+            num_kids += 1
+
+    return tod_sum / num_kids
 
 
 # ============================================================================ #
@@ -446,7 +460,7 @@ def combineMaps(kids, single_maps, shifts):
 
     # combine maps
     # zz_combined = np.nanmean(zz_xformed, axis=0)
-    zz_weights = [1 / np.nanstd(a) for a in zz_xformed]
+    zz_weights = [1 / np.nanvar(a) for a in zz_xformed]
     zz_combined = nanaverage(zz_xformed, axis=0, weights=zz_weights)
 
     return zz_combined
@@ -455,70 +469,53 @@ def combineMaps(kids, single_maps, shifts):
 # ============================================================================ #
 # combinedMapLoop
 @logThis
-def combineMapsLoop(kids, dat_targs, Ff, dat_align_indices, 
-                    roach, dir_roach, i_i, i_cal, i_f, 
-                    x, y, x_edges, y_edges, xx, yy, common_mode, 
+def combineMapsLoop(roach_iterable, cal_i_offset, cal_f_offset, xx, yy, x_edges, y_edges, common_mode,
                     save_singles_func=None, shifts=None):
     '''Calculate the combined map.
     Computationally and I/O expensive.
-
-    kid: (str) The KID number, e.g. '0001'.
-    dat_targs: (tuple of 2 1D arrays of floats) Target sweep I and Q.
-    Ff: (1D array of floats) Frequency axis for target sweep.
-    dat_align_indices: (list of ints) Indices to align tods.
-    roach: (int) The roach number.
-    dir_roach: (string) The directory that roach data is in.
-    i_i: (int) Desired data first index.
-    i_cal: (int) First index of calibration lamp data.
-    i_f: (int) Final index.
-    x/y: (1D arrays; floats) The time ordered positional data, e.g. az/el.
-    x_edges/y_edges: (1D array of floats) The map bin edges.
-    xx/yy: (2D array of floats) The image data (meshgrid).
-    common_mode: (1D array of floats) The common mode tod.
-    save_singles_func: (func) Handles saving out the single maps.
-    shifts: (1D array of floats) Pixel shift to align maps.
     '''
 
     single_maps = {}
     shifts_source = {}
     source_xy = {}
+    kid_ids = []
 
-    for kid in progressbar(kids, "Combining maps: "):
+    for roach in roach_iterable:
+        for kid in progressbar(roach.kids, f"Building maps for roach {roach.id}: "):
 
-        # get the normalized df for this kid
-        tod = tlib.getNormKidDf(kid, dat_targs, Ff, dat_align_indices, 
-                          roach, dir_roach, i_i, i_cal, i_f)
+            kid_id = f'roach{roach.id}_{kid}'
+            kid_ids.append(kid_id)
 
-        # clean the df tod
-        tod = tlib.cleanTOD(tod)
+            # get the normalized df for this kid
+            tod = tlib.getNormKidDf(kid, roach.dat_targs, roach.Ff, roach.dat_align_indices,
+                                    roach.id, roach.dir_roach, roach.slice_i, roach.slice_f,
+                                    cal_i_offset, cal_f_offset)
 
-        # remove common mode
-        tod_ct_removed = tod - common_mode
+            # clean the df tod
+            tod = tlib.cleanTOD(tod)
 
-        # high-pass filter
-        # tod = tlib.highpassFilterTOD(tod, fs_tod, fc_high)
+            # remove common mode
+            tod_ct_removed = tod - common_mode
 
-        # build the binned pixel map
-        zz  = buildSingleKIDMap(tod_ct_removed, x, y, x_edges, y_edges)
-        single_maps[kid] = zz
+            # build the binned pixel map
+            zz  = buildSingleKIDMap(tod_ct_removed, roach.x_um, roach.y_um, x_edges, y_edges)
+            single_maps[kid_id] = zz
 
+            # find the source's coords
+            xy = sourceCoords(xx, yy, zz) # x_im, y_im
+            source_xy[kid_id] = xy
 
-        # find the source's coords
-        xy = sourceCoords(xx, yy, zz) # x_im, y_im
-        source_xy[kid] = xy
+            # find shift required to center source in map
+            shifts_source[kid_id] = sourceCoordsToPixShift(xy[0], xy[1], xx, yy)
 
-        # find shift required to center source in map
-        shifts_source[kid] = sourceCoordsToPixShift(xy[0], xy[1], xx, yy)
+            # use source determined shifts if not given as input
+            shifts = shifts_source if shifts is None else shifts
 
-        # use source determined shifts if not given as input
-        shifts = shifts_source if shifts is None else shifts
-
-        # output single map to file
-        if save_singles_func is not None:
-            save_singles_func(kid, np.array([xx, yy, zz]))
+            # output single map to file
+            if save_singles_func is not None:
+                save_singles_func(kid_id, np.array([xx, yy, zz]))
 
     # create combined map
-    combined_map = combineMaps(kids, single_maps, shifts)
+    combined_map = combineMaps(kid_ids, single_maps, shifts)
 
     return combined_map, shifts_source, source_xy
-    

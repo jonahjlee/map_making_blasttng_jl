@@ -9,7 +9,6 @@
 # ============================================================================ #
 
 import os
-import gc
 import time
 from datetime import datetime
 import logging
@@ -18,6 +17,7 @@ import numpy as np
 
 from mmi_config import *
 import mmi_data_lib as dlib
+from mmi_roach import Roach
 # import mmi_tod_lib as tlib
 import mmi_map_lib as mlib
 
@@ -28,7 +28,7 @@ import mmi_map_lib as mlib
 
 def main():
 
-    print(f"Creating maps for roach {roach}.")
+    print(f"Creating maps for {[r.name for r in roach_ids]}.")
 
 
 # ============================================================================ #
@@ -63,32 +63,19 @@ def main():
 #  M LOAD
 # Load and calibrate data common to all KIDs
 
-    print(f"Loading common data... ", end="", flush=True)
+    print(f"Loading common data... ")
 
-    # load master data 
-    dat_raw = dlib.loadMasterData(roach, dir_master, dir_roach)
+    roaches = {}
 
-    # load all target sweeps
-    dat_targs, Ff = dlib.loadTargSweepsData(dir_targ)
+    for roach_id in roach_ids:
+        roaches[roach_id] = Roach(roach_id, pass_to_map)
+        log.info(roaches[roach_id].info)
+        print(roaches[roach_id].info)
 
-    # load array layout and pre-calculate map shifts from layout
-    # dat_layout = dlib.abFromLayout(file_layout)
-    # shifts_xy_layout = mlib.xyFromAb(dat_layout, platescale, pixels_per_beam, psf)
-
-    # temporaly align tods, rebin if necessary
-    dat_aligned, dat_align_indices = dlib.alignMasterAndRoachTods(dat_raw)
-
-    # calculate spatial bin diff.
-    ds_tod = dlib.ds(dat_aligned['az'], dat_aligned['el'])
-
-    # slice tods to desired region (remove cal lamp)
-    dat_sliced = {
-        field: dat_aligned[field][slice_i:cal_i].copy()
-        for field in dat_aligned}
-
-    # free memory and force collection (these tods are large)
-    del(dat_raw, dat_aligned)
-    gc.collect()
+    # trigger common data loading
+    # for roach in roaches.values():
+    #     roach._load_master_data()
+    #     roach._load_target_sweeps()
 
     print("Done.")
 
@@ -97,23 +84,11 @@ def main():
 #  M COORDS
 # Map coordinates and axis arrays
 
-    print(f"Building map base and coordinates... ", end="", flush=True)
-
-    # detected source coordinates in az/el telescope frame
-    source_azel = mlib.sourceCoordsAzEl( # (az, el)
-        source_name, 
-        dat_sliced['lat'], dat_sliced['lon'], 
-        dat_sliced['alt'], dat_sliced['time'])
-
-    # generate x_az and y_el, the az/el offset tods
-    x_az, y_el = mlib.azElOffsets(source_azel, dat_sliced['az'], dat_sliced['el'])
-
-    # convert offsets in degrees to um on image plane
-    x_um, y_um = mlib.offsetsTanProj(x_az, y_el, platescale)
+    print(f"Building map base... ", end="", flush=True)
 
     # generate map bins and axes
-    xx, yy, x_bins, y_bins, x_edges, y_edges = mlib.genMapAxesAndBins(
-        x_um, y_um, x_bin, y_bin)
+    xx, yy, x_bins, y_bins, x_edges, y_edges \
+        = mlib.genMapAxesAndBins(roaches.values(), x_bin, y_bin)
 
     print("Done.")
 
@@ -124,25 +99,7 @@ def main():
 
     print(f"Loading KID data... ", end="", flush=True)
 
-    # kids to use
-    kids = dlib.findAllKIDs(dir_roach) # all in dir_roach; sorted
-
-    # remove unused channels
-    kids = [kid for kid in kids if int(kid) <= kid_max]
-
-    # KID rejects
-    try: # file might not exist
-        kid_rejects = dlib.loadKidRejects(file_rejects)
-        kids = [kid for kid in kids if kid not in kid_rejects]
-    except: pass
-
-    # remove kids not in layout file
-    # kids = [kid for kid in kids if kid in shifts_xy_layout.keys()]
-
-    # move ref kid so it's processed first
-    # this is last so it raises an error if ou`r ref has been removed
-    kids.remove(kid_ref)
-    kids.insert(0, kid_ref)
+    # moved into Roach.__init__ / Roach._load_kids()
 
     print("Done.")
 
@@ -165,16 +122,19 @@ def main():
     def save_singles_func(kid, data):
         # we can probably return all single maps and then save here?
         np.save(os.path.join(dir_it, dir_single, f"map_kid_{kid}"), data)
+
     combined_map, shifts_source, source_xy = mlib.combineMapsLoop(
-        kids, dat_targs, Ff, dat_align_indices, roach, dir_roach,
-        slice_i, cal_i, cal_f, x_um, y_um, x_edges, y_edges, xx, yy, 0,
-        save_singles_func,
-        None)
-    # shifts_xy_layout)
+        roaches.values(),
+        cal_i_offset, cal_f_offset,
+        xx, yy,
+        x_edges, y_edges,
+        0,
+        save_singles_func
+    )
 
     # output combined map to file
     if dir_out is not None:
-        np.save(os.path.join(dir_it, f"combined_map"),
+        np.save(os.path.join(dir_it, "combined_map"),
                 [xx, yy, combined_map])
 
     print(f"Performing {ct_its} common-mode iterations: ")
@@ -189,20 +149,23 @@ def main():
 
         # common mode KID loop
         # loop over KIDs, generate common mode
-        common_mode = mlib.commonModeLoop(kids, dat_targs, Ff, dat_align_indices, roach, dir_roach, slice_i, cal_i,
-                                          cal_f, x_um, y_um, x_edges, y_edges, source_xy, combined_map)
-        np.save(os.path.join(dir_it, file_commonmode), common_mode)
+        common_mode = mlib.commonModeLoop(
+            roaches.values(),
+            cal_i_offset, cal_f_offset,
+            x_edges, y_edges,
+            source_xy,
+            combined_map
+        )
+        np.save(os.path.join(dir_it, "common_mode"), common_mode)
 
         combined_map, shifts_source, source_xy = mlib.combineMapsLoop(
-            kids, dat_targs, Ff, dat_align_indices, roach, dir_roach, 
-            slice_i, cal_i, cal_f, x_um, y_um, x_edges, y_edges, xx, yy, common_mode,
-            save_singles_func,
-            None)
-            # shifts_xy_layout)
-
-        # save common mode to file as map
-        cmmap = mlib.buildSingleKIDMap(common_mode, x_um, y_um, x_edges, y_edges)
-        np.save(os.path.join(dir_it, "common_mode_map"), cmmap)
+            roaches.values(),
+            cal_i_offset, cal_f_offset,
+            xx, yy,
+            x_edges, y_edges,
+            common_mode,
+            save_singles_func
+        )
 
         # output combined map to file
         if dir_out is not None:
@@ -212,8 +175,6 @@ def main():
         # save shifts to file
         np.save(os.path.join(dir_it, dir_xform, f'shifts_source.npy'), 
                 shifts_source)
-        # np.save(os.path.join(dir_it, dir_xform, f'shifts_xy_layout.npy'),
-        #         shifts_xy_layout)
 
     print("Done.")
     print(f"Time taken: {timer.deltat()}")
