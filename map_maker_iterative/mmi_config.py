@@ -22,9 +22,9 @@ class RoachID(Enum):
     ROACH_4 = 4
     ROACH_5 = 5
 
-roach_ids = [RoachID(2), RoachID(4), RoachID(5)]
+roach_ids = [RoachID.ROACH_1]
 
-pass_to_map = ScanPass.PASS_1
+pass_to_map = ScanPass.PASS_0
 
 maps_to_build = ['DF']  # options: ['A', 'P', 'DF']
 
