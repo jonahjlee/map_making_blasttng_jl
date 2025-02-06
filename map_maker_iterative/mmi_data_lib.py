@@ -104,6 +104,8 @@ def alignMasterAndRoachTods(dat_raw):
         a_interp = np.interp(x_new, x_old, a)
         return a_interp
 
+    breakpoint()
+
     dat_aligned = {}
     for field in master_fields:
         dat_aligned[field] = interp(dat_raw[field], roach_time)

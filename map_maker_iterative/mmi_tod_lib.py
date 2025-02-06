@@ -211,6 +211,8 @@ def getNormKidDf(kid, dat_targs, Ff, dat_align_indices,
     # brings master and roach tods in sync
     tod = tod[:slice_f - slice_i]
 
+    breakpoint()
+
     return tod
 
 
