@@ -286,7 +286,7 @@ def commonModeLoop(roach_iterable, cal_i_offset, cal_f_offset, x_edges, y_edges,
     '''
 
     arbitrary_roach = next(iter(roach_iterable))  # same for all roaches
-    observation_len = arbitrary_roach.slice_f - arbitrary_roach.slice_i
+    observation_len = (arbitrary_roach.slice_f - arbitrary_roach.slice_i) / down_sample_factor
 
     tod_sum = np.zeros(observation_len)
     num_kids = 0
