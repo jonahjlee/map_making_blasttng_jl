@@ -129,6 +129,7 @@ def main():
         xx, yy,
         x_edges, y_edges,
         0,
+        down_sample_factor,
         save_singles_func
     )
 
@@ -154,7 +155,8 @@ def main():
             cal_i_offset, cal_f_offset,
             x_edges, y_edges,
             source_xy,
-            combined_map
+            combined_map,
+            down_sample_factor
         )
         np.save(os.path.join(dir_it, "common_mode"), common_mode)
 
@@ -164,6 +166,7 @@ def main():
             xx, yy,
             x_edges, y_edges,
             common_mode,
+            down_sample_factor,
             save_singles_func
         )
 

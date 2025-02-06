@@ -90,6 +90,15 @@ def df_IQangle(I, Q, If, Qf, Ff, i_f0=None):
 
 
 # ============================================================================ #
+# normTod
+def downsample(arr: np.ndarray, factor):
+    assert arr.ndim == 1, "can only down-sample 1-d array"
+    assert arr.size % factor == 0, "array length must be a multiple of down-sampling factor"
+    reshaped = np.reshape(arr, (-1, factor))
+    return reshaped.mean(axis=1)
+
+
+# ============================================================================ #
 # df_IQangle
 # """
 def df_IQangle(I, Q, If, Qf, Ff, i_f0=None):
@@ -210,8 +219,6 @@ def getNormKidDf(kid, dat_targs, Ff, dat_align_indices,
     # slice only desired region
     # brings master and roach tods in sync
     tod = tod[:slice_f - slice_i]
-
-    breakpoint()
 
     return tod
 

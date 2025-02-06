@@ -23,7 +23,6 @@ from scipy.ndimage import shift, gaussian_filter
 import mmi_tod_lib as tlib
 
 
-
 # ============================================================================ #
 # logThis
 def logThis(func):
@@ -280,7 +279,8 @@ def cutoffFrequency(scale, dt, ds):
 # ============================================================================ #
 # commonMode
 @logThis
-def commonModeLoop(roach_iterable, cal_i_offset, cal_f_offset, x_edges, y_edges, source_xy, combined_map):
+def commonModeLoop(roach_iterable, cal_i_offset, cal_f_offset, x_edges, y_edges, source_xy, combined_map,
+                   down_sample_factor):
     '''Calculate common mode estimate.
     Computationally and I/O expensive.
     '''
@@ -295,9 +295,10 @@ def commonModeLoop(roach_iterable, cal_i_offset, cal_f_offset, x_edges, y_edges,
         for kid in progressbar(roach.kids, f"Estimating common mode for roach {roach.id}: "):
 
             # get the normalized df for this kid
-            tod = tlib.getNormKidDf(kid, roach.dat_targs, roach.Ff, roach.dat_align_indices,
+            full_tod = tlib.getNormKidDf(kid, roach.dat_targs, roach.Ff, roach.dat_align_indices,
                                     roach.id, roach.dir_roach, roach.slice_i, roach.slice_f,
                                     cal_i_offset, cal_f_offset)
+            tod = tlib.downsample(full_tod, down_sample_factor)
 
             # clean the df tod
             # tod = tlib.cleanTOD(tod)
@@ -470,7 +471,7 @@ def combineMaps(kids, single_maps, shifts):
 # combinedMapLoop
 @logThis
 def combineMapsLoop(roach_iterable, cal_i_offset, cal_f_offset, xx, yy, x_edges, y_edges, common_mode,
-                    save_singles_func=None, shifts=None):
+                    down_sample_factor, save_singles_func=None, shifts=None):
     '''Calculate the combined map.
     Computationally and I/O expensive.
     '''
@@ -487,9 +488,10 @@ def combineMapsLoop(roach_iterable, cal_i_offset, cal_f_offset, xx, yy, x_edges,
             kid_ids.append(kid_id)
 
             # get the normalized df for this kid
-            tod = tlib.getNormKidDf(kid, roach.dat_targs, roach.Ff, roach.dat_align_indices,
-                                    roach.id, roach.dir_roach, roach.slice_i, roach.slice_f,
-                                    cal_i_offset, cal_f_offset)
+            full_tod = tlib.getNormKidDf(kid, roach.dat_targs, roach.Ff, roach.dat_align_indices,
+                                         roach.id, roach.dir_roach, roach.slice_i, roach.slice_f,
+                                         cal_i_offset, cal_f_offset)
+            tod = tlib.downsample(full_tod, down_sample_factor)
 
             # clean the df tod
             tod = tlib.cleanTOD(tod)

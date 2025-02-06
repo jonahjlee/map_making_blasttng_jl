@@ -11,9 +11,11 @@
 import numpy as np
 from mmi_config import (ScanPass, slice_i_dict, pass_indices, dir_roach_dict,
                         dir_targ_dict, dir_master, source_name, platescale,
-                        RoachID, kid_ref_dict, kid_max_dict, file_rejects_dict)
+                        RoachID, kid_ref_dict, kid_max_dict, file_rejects_dict,
+                        down_sample_factor)
 import mmi_data_lib as dlib
 import mmi_map_lib as mlib
+import mmi_tod_lib as tlib
 
 
 class Roach:
@@ -132,7 +134,7 @@ class Roach:
 
         # slice tods to desired region (remove cal lamp)
         self._dat_sliced = {
-            field: dat_aligned[field][self.slice_i:self.slice_f].copy()
+            field: tlib.downsample(dat_aligned[field][self.slice_i:self.slice_f].copy(), down_sample_factor)
             for field in dat_aligned}
 
     def _load_target_sweeps(self):

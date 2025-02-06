@@ -51,7 +51,7 @@ pixels_per_beam = 2 # 2 in x and y = 4 pixel sampling of beam
 # x_bin = y_bin = psf/pixels_per_beam/platescale # um
 x_bin = y_bin = 0.0150/pixels_per_beam/platescale # bin size override
 
-sample_rate = 30  # Hz, down-sampled from 477Hz
+down_sample_factor = 10  # down-sampled from 477Hz
 
 # KID to use as the reference for shift table calculations
 kid_ref_dict = {
