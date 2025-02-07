@@ -171,7 +171,27 @@ def normTod(tod, cal_i, cal_f):
         tod_norm = a_new + (b_new - a_new)*(tod - a_old)/(b_old - a_old)
 
     return tod_norm
-    
+
+
+# ============================================================================ #
+# getKidDf
+def getKidDf(kid, dat_targs, Ff, dat_align_indices, roach, dir_roach, slice_i, slice_f):
+
+    # load I and Q (memmap)
+    I, Q = dlib.loadKIDData(roach, kid, dir_roach)
+
+    # load target sweep
+    targ = dlib.getTargSweepIQ(kid, dat_targs)
+
+    # slice and align
+    I_slice = I[dat_align_indices[slice_i:slice_f]]
+    Q_slice = Q[dat_align_indices[slice_i:slice_f]]
+
+    # build df tod
+    tod = df_IQangle(I_slice, Q_slice, *targ, Ff)
+
+    return tod
+
 
 # ============================================================================ #
 # getNormKidDf

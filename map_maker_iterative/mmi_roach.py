@@ -11,9 +11,11 @@
 import numpy as np
 from mmi_config import (ScanPass, slice_i_dict, pass_indices, dir_roach_dict,
                         dir_targ_dict, dir_master, source_name, platescale,
-                        RoachID, kid_ref_dict, kid_max_dict, file_rejects_dict)
+                        RoachID, kid_ref_dict, kid_max_dict, file_rejects_dict,
+                        cal_i_offset, cal_f_offset)
 import mmi_data_lib as dlib
 import mmi_map_lib as mlib
+import mmi_tod_lib as tlib
 
 
 class Roach:
@@ -45,9 +47,26 @@ class Roach:
 
         self.kids = self._load_kids()
 
+    def get_kid_df(self, kid: any) -> np.ndarray:
+        """Compute the DF TOD for one KID in this roach slice"""
+        if isinstance(kid, int): kid = f"{kid:04}"
+        assert kid in self.kids, (f"KID not found. Must be between ['0000' - '{self.kid_max:04}'] inclusive, "
+                                  "and not in rejects.")
+        return tlib.getKidDf(kid, self.dat_targs, self.Ff, self.dat_align_indices,
+                                self.id, self.dir_roach, self.slice_i, self.slice_f)
+
+    def get_norm_kid_df(self, kid: any) -> np.ndarray:
+        """Compute the DF TOD normalized to calibration lamp for one KID in this roach slice"""
+        if isinstance(kid, int): kid = f"{kid:04}"
+        assert kid in self.kids, (f"KID not found. Must be between ['0000' - '{self.kid_max:04}'] inclusive, "
+                                  "and not in rejects.")
+        return tlib.getNormKidDf(kid, self.dat_targs, self.Ff, self.dat_align_indices,
+                                self.id, self.dir_roach, self.slice_i, self.slice_f,
+                                cal_i_offset, cal_f_offset)
+
     @property
     def info(self) -> str:
-        """Summary of info for this Roach."""
+        """Summary of info for this roach slice."""
         if self.scan_pass == ScanPass.ALL:
             pass_info = "all passes"
         elif self.scan_pass == ScanPass.PASS_1_2:
@@ -65,7 +84,7 @@ class Roach:
                 f"\n    dir_targ: {self.dir_targ}"
                 f"\n    file_rejects: {self.file_rejects}")
 
-    def _load_kids(self):
+    def _load_kids(self) -> list[str]:
         # kids to use
         kids = dlib.findAllKIDs(self.dir_roach)  # all in dir_roach; sorted
 
@@ -87,7 +106,7 @@ class Roach:
         return kids
 
     def _get_slice_interval(self) -> tuple[int, int]:
-        """Determines the starting and ending indices of the desired slice for this ROACH.
+        """Determines the starting and ending indices of the desired slice for this roach.
 
         Returns a tuple in the form (slice_i, slice_f).
         """
@@ -118,7 +137,7 @@ class Roach:
             self.dat_sliced['el']
         )
 
-    def _load_master_data(self):
+    def _load_master_data(self) -> None:
         """Loads master data.
 
         The following instance attributes are loaded:
@@ -135,7 +154,7 @@ class Roach:
             field: dat_aligned[field][self.slice_i:self.slice_f].copy()
             for field in dat_aligned}
 
-    def _load_target_sweeps(self):
+    def _load_target_sweeps(self) -> None:
         """Loads target sweep data.
 
         The following instance attributes are loaded:
