@@ -24,7 +24,7 @@ class Roach:
     Computes and provides access to roach data for a specified pass of RCW-92.
     """
 
-    def __init__(self, roach_id:  RoachID, scan_pass: ScanPass):
+    def __init__(self, roach_id:  RoachID, scan_pass: ScanPass, use_rejects_file=True):
         self.roach_id = roach_id
         self.id = roach_id.value
         self.scan_pass: ScanPass = scan_pass
@@ -33,7 +33,7 @@ class Roach:
         self.dir_targ = dir_targ_dict[self.id]
         self.kid_ref = kid_ref_dict[self.id]
         self.kid_max = kid_max_dict[self.id]
-        self.file_rejects = file_rejects_dict[self.id]
+        self.file_rejects = file_rejects_dict[self.id] if use_rejects_file else None
 
         self.slice_i, self.slice_f = self._get_slice_interval()
 
@@ -92,11 +92,9 @@ class Roach:
         kids = [kid for kid in kids if int(kid) <= self.kid_max]
 
         # KID rejects
-        try:  # file might not exist
+        if self.file_rejects is not None:
             kid_rejects = dlib.loadKidRejects(self.file_rejects)
             kids = [kid for kid in kids if kid not in kid_rejects]
-        except FileNotFoundError:
-            pass
 
         # move ref kid so it's processed first
         # this is last so it raises an error if our ref has been removed
