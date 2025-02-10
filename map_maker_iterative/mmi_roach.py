@@ -92,9 +92,9 @@ class Roach:
         kids = [kid for kid in kids if int(kid) <= self.kid_max]
 
         # KID rejects
-        if self.file_rejects is not None:
-            kid_rejects = dlib.loadKidRejects(self.file_rejects)
-            kids = [kid for kid in kids if kid not in kid_rejects]
+        # if self.file_rejects is not None:
+        #     kid_rejects = dlib.loadKidRejects(self.file_rejects)
+        #     kids = [kid for kid in kids if kid not in kid_rejects]
 
         # move ref kid so it's processed first
         # this is last so it raises an error if our ref has been removed
