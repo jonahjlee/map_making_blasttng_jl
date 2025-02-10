@@ -143,6 +143,8 @@ def main():
 
         print(f"Starting iteration {iteration}.")
 
+        breakpoint()
+
         # create dir and subdirs for this iteration
         dir_it = os.path.join(dir_out, f'it_{iteration}')
         makeDirs([dir_single, dir_xform], dir_it)
