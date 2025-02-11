@@ -96,7 +96,7 @@ def main():
     file_layout = os.path.join(dir_root, 'map_making', 'detector_layouts', 'layout_roach1.csv')
     dat_layout = dlib.abFromLayout(file_layout)
     shifts_xy_layout = {
-        f"{int(kid):04}": (dat_layout[kid][0] / x_bin, dat_layout[kid][1] / y_bin)
+        f"roach1_{int(kid):04}": (dat_layout[kid][0] / x_bin, dat_layout[kid][1] / y_bin)
         for kid in dat_layout.keys()
     }
 
