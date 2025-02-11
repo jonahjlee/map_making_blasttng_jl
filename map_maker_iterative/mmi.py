@@ -17,7 +17,6 @@ from time import daylight
 
 import numpy as np
 
-from map_making import file_layout
 from mmi_config import *
 import mmi_data_lib as dlib
 from mmi_roach import Roach
