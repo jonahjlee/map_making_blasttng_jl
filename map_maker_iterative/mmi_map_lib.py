@@ -454,9 +454,12 @@ def combineMaps(kids, single_maps, shifts):
     '''
 
     # translate maps ([::-1] to deal with numpy reversed x/y?)
-    zz_xformed = [
-        shift(single_maps[kid], shifts[kid][::-1], cval=np.nan, order=0)
-        for kid in kids]
+    zz_xformed = []
+    for kid in kids:
+        try:
+            zz_xformed.append(shift(single_maps[kid], shifts[kid][::-1], cval=np.nan, order=0))
+        except KeyError:
+            print(f'KID {kid} not found in layout; ignoring...')
 
     # combine maps
     # zz_combined = np.nanmean(zz_xformed, axis=0)
