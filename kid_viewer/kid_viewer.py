@@ -41,11 +41,12 @@ def load_kid_layout(layout_file, rejects_file=None) -> dict[int, tuple[float, fl
 
 
 def load_kid_tods(roach: RoachPass) -> dict[int, np.ndarray]:
-    """Loads the TODs (Time Ordered Data) for each KID in this ROACH
+    """Loads the normalized DF TODs (Time Ordered Data) for each KID in this ROACH
 
     Returns a dictionary which maps KID IDs to numpy TOD arrays.
     """
-    pass
+    kids: list[str] = roach.kids
+    return {int(kid):roach.get_norm_kid_df(kid) for kid in kids}
 
 def plot_animation(shifts, tods) -> None:
     """Creates an animated scatter plot window which shows each KID's DF as its colour which changes in time"""
