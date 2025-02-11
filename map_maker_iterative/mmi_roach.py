@@ -3,7 +3,7 @@
 #
 # Jonah Lee
 #
-# Map Maker Iterative Roach Class
+# Map Maker Iterative RoachPass Class
 # Object representation of BLAST-TNG ROACH.
 # Computes and provides access to roach data for a specified pass of RCW-92.
 # ============================================================================ #
@@ -18,7 +18,7 @@ import mmi_map_lib as mlib
 import mmi_tod_lib as tlib
 
 
-class Roach:
+class RoachPass:
     """Object representation of BLAST-TNG ROACH.
 
     Computes and provides access to roach data for a specified pass of RCW-92.
@@ -187,5 +187,5 @@ class Roach:
 
 
 if __name__ == '__main__':
-    my_roach = Roach(RoachID.ROACH_1, ScanPass.ALL)
+    my_roach = RoachPass(RoachID.ROACH_1, ScanPass.ALL)
     print(my_roach.dat_sliced.keys())

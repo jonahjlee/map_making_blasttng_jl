@@ -18,7 +18,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 
 from mmi_config import *
-from mmi_roach import Roach
+from mmi_roach import RoachPass
 import mmi_data_lib as dlib
 import mmi_tod_lib as tlib
 import mmi_map_lib as mlib
@@ -56,7 +56,7 @@ if __name__ == '__main__':
     print(f"Loading common data... ")
     roaches = {}
     for roach_id in roach_ids:
-        roaches[roach_id] = Roach(roach_id, pass_to_map)
+        roaches[roach_id] = RoachPass(roach_id, pass_to_map)
         print(roaches[roach_id].info)
     print("Done.")
 
