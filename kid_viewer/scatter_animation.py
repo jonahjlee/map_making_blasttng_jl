@@ -80,7 +80,7 @@ class AnimatedScatterPlot(tk.Frame):
         self.canvas.draw()
 
         self.ani = FuncAnimation(self.fig, self.update_plot, frames=self.get_frame,
-                                 interval=self.tick_ms, repeat=True)
+                                 interval=self.tick_ms, repeat=True, cache_frame_data=False)
 
     def update_plot(self, frame):
 
@@ -126,38 +126,3 @@ class AnimatedScatterPlot(tk.Frame):
             # update the image
             # could unpause-resume to avoid calling protected method?
             self.ani._draw_frame(self.frame)
-
-
-
-# ============================================================================ #
-# EXAMPLE USAGE
-# ============================================================================ #
-
-if __name__ == '__main__':
-
-    # Example data for demonstration
-    pos_dict = {
-        1: (1., 2.),
-        2: (2., 3.),
-        3: (3., 1.),
-        4: (4., 4.),
-        5: (5., 2.)
-    }
-
-    # Random example timestreams for each point
-    tod_dict = {
-        1: np.random.rand(100),  # Timestreams with 10 time points
-        2: np.random.rand(100),
-        3: np.random.rand(100),
-        4: np.random.rand(100),
-        5: np.random.rand(100)
-    }
-
-    # Main Tkinter window setup
-    root = tk.Tk()
-    root.title("Animated Scatter Plot")
-
-    app = AnimatedScatterPlot(parent=root, positions=pos_dict, timestreams=tod_dict, tick_ms=100)
-
-    # Start the GUI loop
-    app.mainloop()
