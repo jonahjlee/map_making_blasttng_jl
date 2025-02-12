@@ -103,15 +103,20 @@ def downsample(arr: np.ndarray, factor, allow_truncate=False):
 
 if __name__ == '__main__':
 
+    # ============================================================================ #
+    # LOAD & PROCESS DATA
+    # ============================================================================ #
+
     # Define Constants
     # layout_file = os.path.join(os.getcwd(), '..', 'detector_layouts', 'layout_roach1.csv')
-    layout_file = os.path.join(os.getcwd(), '..', 'detector_layouts', 'roach1_pass23_shifts.npy')
+    layout_file = os.path.normpath(os.path.join(os.getcwd(), '..', 'detector_layouts', 'roach1_pass23_shifts.npy'))
 
     # Load KID Shifts
     shifts: dict[int, tuple[float, float]] = load_kid_layout(layout_file)
 
     # Load KID TODs
-    kid_tods: dict[int, np.ndarray] = np.load(os.path.join(os.getcwd(), 'r1p3_norm_dfs.npy'), allow_pickle=True).item()
+    tod_file = os.path.normpath(os.path.join(os.getcwd(), 'r1p3_norm_dfs.npy'))
+    kid_tods: dict[int, np.ndarray] = np.load(tod_file, allow_pickle=True).item()
 
     down_sampled_tods = {kid:downsample(tod, 200, allow_truncate=True)
                          for kid, tod in kid_tods.items()}
@@ -121,17 +126,24 @@ if __name__ == '__main__':
     shifts_common = {key:val for key, val in shifts.items() if key in common_kids}
     kid_tods_common = {key:val for key, val in down_sampled_tods.items() if key in common_kids}
 
+
+    # ============================================================================ #
+    # BUILD GUI ELEMENTS
+    # ============================================================================ #
+
     # Create an animated scatter plot window which shows
     # each KID's DF as its colour which changes in time
     root = tk.Tk()
-    root.title("Kid Viewer")
-
-    # ===== CREATE GUI ELEMENTS =====
+    root.title("BLAST-TNG Kid Viewer")
 
     mainframe = ttk.Frame(root, padding="3 3 12 12")
 
     # mainframe children
-    title = ttk.Label(mainframe, text="Test")
+    title_text = (
+        f"Layout File: {layout_file}"
+        f"\nTOD File: {tod_file}"
+    )
+    title = ttk.Label(mainframe, text=title_text)
     slider = ttk.Scale(mainframe, orient='horizontal')
     kid_animation = AnimatedScatterPlot(mainframe, shifts_common, kid_tods_common,
                                         tick_ms=1, speed_mult=1, slider=slider)
@@ -148,7 +160,10 @@ if __name__ == '__main__':
     # button_menu children
     play_pause_btn = ttk.Button(button_menu, text="Pause", command=lambda: toggle_playback(play_pause_btn))
 
-    # ===== ARRANGE ELEMENTS IN WINDOW =====
+
+    # ============================================================================ #
+    # ARRANGE LAYOUT
+    # ============================================================================ #
 
     mainframe.grid(column=0, row=0)
 
@@ -157,8 +172,12 @@ if __name__ == '__main__':
         .get_tk_widget().grid(column=0, row=1)
     slider.grid(              column=0, row=2, sticky='NWES')
     button_menu.grid(         column=0, row=3)
-
     play_pause_btn.grid(column=0, row=0)
+
+
+    # ============================================================================ #
+    # OPEN GUI
+    # ============================================================================ #
 
     # Start the GUI loop
     kid_animation.mainloop()
