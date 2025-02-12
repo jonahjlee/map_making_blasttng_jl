@@ -73,6 +73,13 @@ def load_kid_layout_npy(layout_file, rejects_file=None) -> dict[int, tuple[float
         raise err
 
 
+def downsample(arr: np.ndarray, factor, allow_truncate=False):
+    assert arr.ndim == 1, "can only down-sample 1-d array"
+    if allow_truncate: arr = arr[:-(arr.size % factor)]
+    else: assert arr.size % factor == 0, "array length must be a multiple of down-sampling factor"
+    reshaped = np.reshape(arr, (-1, factor))
+    return reshaped.mean(axis=1)
+
 # def load_kid_tods(roach: RoachPass) -> dict[int, np.ndarray]:
 #     """Loads the normalized DF TODs (Time Ordered Data) for each KID in this ROACH
 #
@@ -98,17 +105,19 @@ if __name__ == '__main__':
     # kid_tods: dict[int, np.ndarray] = load_kid_tods(roach)
     kid_tods: dict[int, np.ndarray] = np.load(os.path.join(os.getcwd(), 'r1p3_norm_dfs.npy'), allow_pickle=True).item()
 
+    downsampled_tods = {kid:downsample(tod, 200, allow_truncate=True) for kid, tod in kid_tods.items()}
+
     # Only map KIDs both in layout and TODs
     common_kids = set(kid_tods.keys()).intersection(set(shifts.keys()))
     shifts_common = {key:val for key, val in shifts.items() if key in common_kids}
-    kid_tods_common = {key:val for key, val in kid_tods.items() if key in common_kids}
+    kid_tods_common = {key:val for key, val in downsampled_tods.items() if key in common_kids}
 
     # Create an animated scatter plot window which shows
     # each KID's DF as its colour which changes in time
     root = tk.Tk()
     root.title("Animated Plot")
 
-    app = AnimatedScatterPlot(root, shifts_common, kid_tods_common, tick_ms=1, speed_mult=200)
+    app = AnimatedScatterPlot(root, shifts_common, kid_tods_common, tick_ms=1, speed_mult=1)
 
     # Start the GUI loop
     app.mainloop()
