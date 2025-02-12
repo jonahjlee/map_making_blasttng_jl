@@ -27,7 +27,7 @@ import numpy as np
 
 class AnimatedScatterPlot(tk.Frame):
     def __init__(self,
-                 master: tk.Widget,
+                 master: tk.Tk,
                  positions: dict[int, tuple[float, float]],
                  timestreams: dict[int, np.ndarray],
                  tick_ms: int,
@@ -38,7 +38,7 @@ class AnimatedScatterPlot(tk.Frame):
         assert set(positions.keys()) == set(timestreams.keys()),\
             "positions and timestreams must have the same keys"
 
-        self.master: tk.Widget = master
+        self.master: tk.Tk = master
         self.positions: dict[int, tuple[float, float]] = positions
         self.timestreams: dict[int, np.ndarray] = timestreams
         self.tick_ms: int = tick_ms
@@ -98,20 +98,20 @@ if __name__ == '__main__':
 
     # Example data for demonstration
     pos_dict = {
-        "A": (1, 2),
-        "B": (2, 3),
-        "C": (3, 1),
-        "D": (4, 4),
-        "E": (5, 2)
+        1: (1., 2.),
+        2: (2., 3.),
+        3: (3., 1.),
+        4: (4., 4.),
+        5: (5., 2.)
     }
 
     # Random example timestreams for each point
     tod_dict = {
-        "A": np.random.rand(100),  # Timestreams with 10 time points
-        "B": np.random.rand(100),
-        "C": np.random.rand(100),
-        "D": np.random.rand(100),
-        "E": np.random.rand(100)
+        1: np.random.rand(100),  # Timestreams with 10 time points
+        2: np.random.rand(100),
+        3: np.random.rand(100),
+        4: np.random.rand(100),
+        5: np.random.rand(100)
     }
 
     # Main Tkinter window setup
