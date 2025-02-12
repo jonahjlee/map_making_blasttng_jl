@@ -13,12 +13,12 @@
 # IMPORTS
 # ============================================================================ #
 
+import numpy as np
 import tkinter as tk
 import matplotlib.pyplot as plt
 import matplotlib.colors as colors
 from matplotlib.animation import FuncAnimation
 from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
-import numpy as np
 
 
 # ============================================================================ #
