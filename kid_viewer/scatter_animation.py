@@ -57,7 +57,7 @@ class AnimatedScatterPlot(tk.Frame):
 
         self.scatter, self.colorbar, self.canvas, self.ani = None, None, None, None
         self.create_animated_plot()
-
+        self._is_playing = True
 
     def create_animated_plot(self):
         self.scatter = self.ax.scatter(
@@ -87,6 +87,18 @@ class AnimatedScatterPlot(tk.Frame):
         self.canvas.draw()
 
         return [self.scatter]  # list of artists that were updated
+
+    @property
+    def is_playing(self):
+        return self._is_playing
+
+    def pause(self):
+        self.ani.pause()
+        self._is_playing = False
+
+    def resume(self):
+        self.ani.resume()
+        self._is_playing = True
 
 
 # ============================================================================ #
