@@ -16,6 +16,7 @@ import os
 import numpy as np
 import pandas as pd
 import tkinter as tk
+from tkinter import ttk
 from scatter_animation import AnimatedScatterPlot
 
 
@@ -125,7 +126,33 @@ if __name__ == '__main__':
     root = tk.Tk()
     root.title("Kid Viewer")
 
-    app = AnimatedScatterPlot(root, shifts_common, kid_tods_common, tick_ms=1, speed_mult=1)
+    # ===== CREATE GUI ELEMENTS =====
+
+    mainframe = ttk.Frame(root, padding="3 3 12 12")
+
+    # mainframe children
+    title = tk.Label(mainframe, text="Test")
+    app = AnimatedScatterPlot(mainframe, shifts_common, kid_tods_common, tick_ms=1, speed_mult=1)
+    options_bar = tk.Frame(mainframe)
+    slider = tk.Scale(mainframe, orient='horizontal')
+
+    # options_bar children
+    btn1 = tk.Button(options_bar, text="btn1")
+    btn2 = tk.Button(options_bar, text="btn2")
+    btn3 = tk.Button(options_bar, text="btn3")
+
+    # ===== ARRANGE ELEMENTS IN WINDOW =====
+
+    mainframe.grid(column=0, row=0)
+
+    app.canvas.get_tk_widget().grid(column=2, row=2)
+    title.grid(column=2, row=1)
+    options_bar.grid(column=1, row=1, rowspan=2)
+    slider.grid(column=1, row=3, columnspan=2, sticky='NWES')
+
+    btn1.grid(column=0, row=0)
+    btn2.grid(column=0, row=1)
+    btn3.grid(column=0, row=2)
 
     # Start the GUI loop
     app.mainloop()

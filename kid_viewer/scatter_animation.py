@@ -27,18 +27,18 @@ from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
 
 class AnimatedScatterPlot(tk.Frame):
     def __init__(self,
-                 master: tk.Tk,
+                 parent,
                  positions: dict[int, tuple[float, float]],
                  timestreams: dict[int, np.ndarray],
                  tick_ms: int,
                  speed_mult: int=1,
                  **kwargs):
-        super().__init__(master, **kwargs)
+        super().__init__(parent, **kwargs)
 
         assert set(positions.keys()) == set(timestreams.keys()),\
             "positions and timestreams must have the same keys"
 
-        self.master: tk.Tk = master
+        self.parent: tk.Tk = parent
         self.positions: dict[int, tuple[float, float]] = positions
         self.timestreams: dict[int, np.ndarray] = timestreams
         self.tick_ms: int = tick_ms
@@ -47,9 +47,10 @@ class AnimatedScatterPlot(tk.Frame):
         self.num_points: int = len(positions)
         self.tod_len: int = len(next(iter(self.timestreams.values())))  # All timestreams have equal length
 
-        self.pack()
-
         self.fig, self.ax = plt.subplots(figsize=(6, 5))
+        self.fig.tight_layout()
+        self.ax.set_aspect('equal')
+
         self.x_data: list = [point[0] for point in self.positions.values()]
         self.y_data: list = [point[1] for point in self.positions.values()]
         self.color_vals = lambda i: [timestream[i] for timestream in self.timestreams.values()]
@@ -66,12 +67,10 @@ class AnimatedScatterPlot(tk.Frame):
             c=np.zeros(self.num_points), cmap="coolwarm",
             norm=colors.SymLogNorm(0.001)
         )
-        self.ax.set_aspect('equal', adjustable='box')
         self.colorbar = self.fig.colorbar(self.scatter)
 
-        self.canvas = FigureCanvasTkAgg(self.fig, master=self.master)
+        self.canvas = FigureCanvasTkAgg(self.fig, master=self.parent)
         self.canvas.draw()
-        self.canvas.get_tk_widget().pack()
 
         self.ani = FuncAnimation(self.fig, self.update_plot, frames=self.tod_len,
                                  interval=self.tick_ms, repeat=False)
@@ -118,7 +117,7 @@ if __name__ == '__main__':
     root = tk.Tk()
     root.title("Animated Scatter Plot")
 
-    app = AnimatedScatterPlot(master=root, positions=pos_dict, timestreams=tod_dict, tick_ms=100)
+    app = AnimatedScatterPlot(parent=root, positions=pos_dict, timestreams=tod_dict, tick_ms=100)
 
     # Start the GUI loop
     app.mainloop()
