@@ -30,7 +30,7 @@ class AnimatedScatterPlot(tk.Frame):
         self.x_data = [point[0] for point in self.positions.values()]
         self.y_data = [point[1] for point in self.positions.values()]
 
-        self.scatter, self.colorbar, self.canvas = None, None, None
+        self.scatter, self.colorbar, self.canvas, self.ani = None, None, None, None
         self.create_animated_plot(master=self)
 
 
