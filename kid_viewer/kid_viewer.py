@@ -23,22 +23,22 @@ from scatter_animation import AnimatedScatterPlot
 # HELPER FUNCTIONS
 # ============================================================================ #
 
-def load_kid_layout(layout_file, rejects_file=None):
-    if layout_file.endswith('.csv'):
-        return load_kid_layout_csv(layout_file, rejects_file)
-    if layout_file.endswith('.npy'):
-        return load_kid_layout_npy(layout_file, rejects_file)
+def load_kid_layout(file, rejects_file=None):
+    if file.endswith('.csv'):
+        return load_kid_layout_csv(file, rejects_file)
+    if file.endswith('.npy'):
+        return load_kid_layout_npy(file, rejects_file)
 
     raise ValueError('Layout file must end with .csv or .npy')
 
 
-def load_kid_layout_csv(layout_file, rejects_file=None) -> dict[int, tuple[float, float]]:
+def load_kid_layout_csv(file, rejects_file=None) -> dict[int, tuple[float, float]]:
     """Loads KID x/y coordinates on the image plane for a ROACH
 
     Returns a dictionary which maps KID IDs to coordinate pairs.
     """
     try:
-        df = pd.read_csv(layout_file, index_col=0)
+        df = pd.read_csv(file, index_col=0)
 
         if rejects_file is not None:
             try:
@@ -54,17 +54,17 @@ def load_kid_layout_csv(layout_file, rejects_file=None) -> dict[int, tuple[float
         return {kid: (df['x'][kid], df['y'][kid]) for kid in df.index}
 
     except FileNotFoundError as err:
-        print(f"File {layout_file} not found")
+        print(f"File {file} not found")
         raise err
 
 
-def load_kid_layout_npy(layout_file, rejects_file=None) -> dict[int, tuple[float, float]]:
+def load_kid_layout_npy(file, rejects_file=None) -> dict[int, tuple[float, float]]:
     """Loads KID x/y coordinates on the image plane for a ROACH
 
     Returns a dictionary which maps KID IDs to coordinate pairs.
     """
     try:
-        layouts_dict = np.load(layout_file, allow_pickle=True).item()
+        layouts_dict = np.load(file, allow_pickle=True).item()
 
         # parse keys in the form '0000' or 'roach1_0000'
         if isinstance(next(iter(layouts_dict.keys())), str):
@@ -84,7 +84,7 @@ def load_kid_layout_npy(layout_file, rejects_file=None) -> dict[int, tuple[float
         return layouts_dict
 
     except FileNotFoundError as err:
-        print(f"File {layout_file} not found")
+        print(f"File {file} not found")
         raise err
 
 
@@ -112,13 +112,13 @@ if __name__ == '__main__':
     # Load KID TODs
     kid_tods: dict[int, np.ndarray] = np.load(os.path.join(os.getcwd(), 'r1p3_norm_dfs.npy'), allow_pickle=True).item()
 
-    downsampled_tods = {kid:downsample(tod, 200, allow_truncate=True)
-                        for kid, tod in kid_tods.items()}
+    down_sampled_tods = {kid:downsample(tod, 200, allow_truncate=True)
+                         for kid, tod in kid_tods.items()}
 
     # Only map KIDs both in layout and TODs
     common_kids = set(kid_tods.keys()).intersection(set(shifts.keys()))
     shifts_common = {key:val for key, val in shifts.items() if key in common_kids}
-    kid_tods_common = {key:val for key, val in downsampled_tods.items() if key in common_kids}
+    kid_tods_common = {key:val for key, val in down_sampled_tods.items() if key in common_kids}
 
     # Create an animated scatter plot window which shows
     # each KID's DF as its colour which changes in time
