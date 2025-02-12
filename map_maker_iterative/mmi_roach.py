@@ -69,7 +69,7 @@ class RoachPass:
         """Summary of info for this roach slice."""
         if self.scan_pass == ScanPass.ALL:
             pass_info = "all passes"
-        elif self.scan_pass == ScanPass.PASS_1_2:
+        elif self.scan_pass == ScanPass.PASS_2_3:
             pass_info = "pass 1 and 2"
         else:
             pass_info = f"pass {self.scan_pass.value + 1}/3"
@@ -110,11 +110,11 @@ class RoachPass:
         """
 
         if self.scan_pass == ScanPass.ALL:
-            slice_i = slice_i_dict[self.id] + pass_indices[ScanPass.PASS_0.value]  # pass 0 start
-            slice_f = slice_i_dict[self.id] + pass_indices[ScanPass.PASS_2.value + 1]  # pass 2 end
-        elif self.scan_pass == ScanPass.PASS_1_2:
             slice_i = slice_i_dict[self.id] + pass_indices[ScanPass.PASS_1.value]  # pass 1 start
-            slice_f = slice_i_dict[self.id] + pass_indices[ScanPass.PASS_2.value + 1]  # pass 2 end
+            slice_f = slice_i_dict[self.id] + pass_indices[ScanPass.PASS_3.value + 1]  # pass 3 end
+        elif self.scan_pass == ScanPass.PASS_2_3:
+            slice_i = slice_i_dict[self.id] + pass_indices[ScanPass.PASS_2.value]  # pass 2 start
+            slice_f = slice_i_dict[self.id] + pass_indices[ScanPass.PASS_3.value + 1]  # pass 3 end
         else:
             slice_i  = slice_i_dict[self.id] + pass_indices[self.scan_pass.value]  # pass start
             slice_f = slice_i_dict[self.id] + pass_indices[self.scan_pass.value + 1]  # pass end

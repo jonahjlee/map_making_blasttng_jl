@@ -10,11 +10,11 @@
 from enum import Enum
 
 class ScanPass(Enum):
-    PASS_0 = 0
-    PASS_1 = 1
-    PASS_2 = 2
-    ALL = 3       # PASS_0 + PASS_1 + PASS_2
-    PASS_1_2 = 4  # PASS_1 + PASS_2
+    PASS_1 = 0
+    PASS_2 = 1
+    PASS_3 = 2
+    ALL = 3       # PASS_2 + PASS_3 + PASS_3
+    PASS_2_3 = 4  # PASS_3 + PASS_3
 
 class RoachID(Enum):
     ROACH_1 = 1
@@ -31,7 +31,7 @@ roach_ids = [
     # RoachID.ROACH_5,
 ]
 
-pass_to_map = ScanPass.PASS_1_2
+pass_to_map = ScanPass.PASS_2_3
 
 # common-mode loop iterations
 ct_its = 3
