@@ -1,12 +1,27 @@
+# ============================================================================ #
+# kid_viewer.py
+#
+# Jonah Lee
+#
+# Kid Viewer
+# Data visualization tool: display BLAST-TNG KID DF data as seen by the KID array.
+# ============================================================================ #
+
+
+# ============================================================================ #
+# IMPORTS
+# ============================================================================ #
+
 import tkinter as tk
 import numpy as np
 import os
 import pandas as pd
-
 from scatter_animation import AnimatedScatterPlot
-# from array_animation import ArrayAnimation
-# from map_maker_iterative.mmi_roach import RoachPass
-# from map_maker_iterative.mmi_config import ScanPass, RoachID
+
+
+# ============================================================================ #
+# HELPER FUNCTIONS
+# ============================================================================ #
 
 def load_kid_layout(layout_file, rejects_file=None):
     if layout_file.endswith('.csv'):
@@ -80,14 +95,10 @@ def downsample(arr: np.ndarray, factor, allow_truncate=False):
     reshaped = np.reshape(arr, (-1, factor))
     return reshaped.mean(axis=1)
 
-# def load_kid_tods(roach: RoachPass) -> dict[int, np.ndarray]:
-#     """Loads the normalized DF TODs (Time Ordered Data) for each KID in this ROACH
-#
-#     Returns a dictionary which maps KID IDs to numpy TOD arrays.
-#     """
-#     kids: list[str] = roach.kids
-#     return {int(kid):roach.get_norm_kid_df(kid) for kid in kids}
 
+# ============================================================================ #
+# ENTRY POINT
+# ============================================================================ #
 
 if __name__ == '__main__':
 
@@ -95,17 +106,14 @@ if __name__ == '__main__':
     # layout_file = os.path.join(os.getcwd(), '..', 'detector_layouts', 'layout_roach1.csv')
     layout_file = os.path.join(os.getcwd(), '..', 'detector_layouts', 'roach1_pass23_shifts.npy')
 
-    # Select RoachPass / Slice
-    # roach = RoachPass(RoachID(1), ScanPass.PASS_1)
-
     # Load KID Shifts
     shifts: dict[int, tuple[float, float]] = load_kid_layout(layout_file)
 
     # Load KID TODs
-    # kid_tods: dict[int, np.ndarray] = load_kid_tods(roach)
     kid_tods: dict[int, np.ndarray] = np.load(os.path.join(os.getcwd(), 'r1p3_norm_dfs.npy'), allow_pickle=True).item()
 
-    downsampled_tods = {kid:downsample(tod, 200, allow_truncate=True) for kid, tod in kid_tods.items()}
+    downsampled_tods = {kid:downsample(tod, 200, allow_truncate=True)
+                        for kid, tod in kid_tods.items()}
 
     # Only map KIDs both in layout and TODs
     common_kids = set(kid_tods.keys()).intersection(set(shifts.keys()))
@@ -115,7 +123,7 @@ if __name__ == '__main__':
     # Create an animated scatter plot window which shows
     # each KID's DF as its colour which changes in time
     root = tk.Tk()
-    root.title("Animated Plot")
+    root.title("Kid Viewer")
 
     app = AnimatedScatterPlot(root, shifts_common, kid_tods_common, tick_ms=1, speed_mult=1)
 
