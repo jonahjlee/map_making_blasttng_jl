@@ -39,7 +39,7 @@ class AnimatedScatterPlot(tk.Frame):
 
         # Initialize scatter plot
         self.scatter = self.ax.scatter(self.x_data, self.y_data, c=np.zeros(self.num_points),
-                                       s=200, cmap="viridis", marker='o', vmin=-0.5, vmax=0.5)
+                                       s=200, cmap="coolwarm", marker='h', vmin=-0.5, vmax=0.5)
         self.ax.set_aspect('equal', adjustable='box')
 
         # Add color bar for reference
@@ -60,7 +60,10 @@ class AnimatedScatterPlot(tk.Frame):
 
         # Update color array for scatter plot
         print(f'Index: {frame} / {self.tod_len} ({int(100 * frame / self.tod_len)}%)')
-        self.scatter.set_array(np.array(self.dfs_ctremoved(frame)))  # Update color data
+        colors = np.array(self.dfs_ctremoved(frame))
+        self.scatter.set_array(  # Update color data
+            colors
+        )
         self.canvas.draw()  # Redraw the canvas
 
         return [self.scatter]  # list of artists that were updated
