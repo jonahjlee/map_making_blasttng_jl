@@ -132,9 +132,10 @@ if __name__ == '__main__':
 
     # mainframe children
     title = ttk.Label(mainframe, text="Test")
-    kid_animation = AnimatedScatterPlot(mainframe, shifts_common, kid_tods_common, tick_ms=1, speed_mult=1)
-    options_bar = ttk.Frame(mainframe)
     slider = ttk.Scale(mainframe, orient='horizontal')
+    kid_animation = AnimatedScatterPlot(mainframe, shifts_common, kid_tods_common,
+                                        tick_ms=1, speed_mult=1, slider=slider)
+    button_menu = ttk.Frame(mainframe)
 
     def toggle_playback(button):
         if kid_animation.is_playing:
@@ -144,21 +145,20 @@ if __name__ == '__main__':
             kid_animation.resume()
             button.config(text="Pause")
 
-    # options_bar children
-    btn1 = ttk.Button(options_bar, text="Pause", command=lambda: toggle_playback(btn1))
-    btn3 = ttk.Button(options_bar, text="btn3")
+    # button_menu children
+    play_pause_btn = ttk.Button(button_menu, text="Pause", command=lambda: toggle_playback(play_pause_btn))
 
     # ===== ARRANGE ELEMENTS IN WINDOW =====
 
     mainframe.grid(column=0, row=0)
 
-    kid_animation.canvas.get_tk_widget().grid(column=2, row=2)
-    title.grid(column=2, row=1)
-    options_bar.grid(column=1, row=1, rowspan=2)
-    slider.grid(column=1, row=3, columnspan=2, sticky='NWES')
+    title.grid(               column=0, row=0)
+    kid_animation.canvas \
+        .get_tk_widget().grid(column=0, row=1)
+    slider.grid(              column=0, row=2, sticky='NWES')
+    button_menu.grid(         column=0, row=3)
 
-    btn1.grid(column=0, row=0)
-    btn3.grid(column=0, row=1)
+    play_pause_btn.grid(column=0, row=0)
 
     # Start the GUI loop
     kid_animation.mainloop()

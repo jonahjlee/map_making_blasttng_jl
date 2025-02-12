@@ -32,10 +32,11 @@ class AnimatedScatterPlot(tk.Frame):
                  timestreams: dict[int, np.ndarray],
                  tick_ms: int,
                  speed_mult: int=1,
+                 slider: tk.Scale=None,
                  **kwargs):
         super().__init__(parent, **kwargs)
 
-        assert set(positions.keys()) == set(timestreams.keys()),\
+        assert set(positions.keys()) == set(timestreams.keys()), \
             "positions and timestreams must have the same keys"
 
         self.parent: tk.Tk = parent
@@ -44,8 +45,12 @@ class AnimatedScatterPlot(tk.Frame):
         self.tick_ms: int = tick_ms
         self.speed_mult: int = speed_mult
 
+        self.slider = None
+        self.slider_val = None
+        self.set_slider(slider)
+
         self.num_points: int = len(positions)
-        self.tod_len: int = len(next(iter(self.timestreams.values())))  # All timestreams have equal length
+        self.tod_len: int = len(next(iter(self.timestreams.values())))  # all timestreams have equal length
 
         self.fig, self.ax = plt.subplots(figsize=(6, 5))
         self.fig.tight_layout()
@@ -56,8 +61,10 @@ class AnimatedScatterPlot(tk.Frame):
         self.color_vals = lambda i: [timestream[i] for timestream in self.timestreams.values()]
 
         self.scatter, self.colorbar, self.canvas, self.ani = None, None, None, None
-        self.create_animated_plot()
+
         self._is_playing = True
+        self.frame = 0
+        self.create_animated_plot()
 
     def create_animated_plot(self):
         self.scatter = self.ax.scatter(
@@ -72,14 +79,16 @@ class AnimatedScatterPlot(tk.Frame):
         self.canvas = FigureCanvasTkAgg(self.fig, master=self.parent)
         self.canvas.draw()
 
-        self.ani = FuncAnimation(self.fig, self.update_plot, frames=self.tod_len,
-                                 interval=self.tick_ms, repeat=False)
+        self.ani = FuncAnimation(self.fig, self.update_plot, frames=self.get_frame,
+                                 interval=self.tick_ms, repeat=True)
 
     def update_plot(self, frame):
 
-        frame *= self.speed_mult
+        fraction_done = frame * self.speed_mult / self.tod_len
+        if self.slider is not None:
+            self.slider_val.set(fraction_done)
 
-        print(f'Index: {frame} / {self.tod_len} ({int(100 * frame / self.tod_len)}%)')
+        # print(f'Index: {frame} / {self.tod_len} ({int(100 * fraction_done)}%)')
 
         self.scatter.set_array(
             np.array(self.color_vals(frame))
@@ -99,6 +108,25 @@ class AnimatedScatterPlot(tk.Frame):
     def resume(self):
         self.ani.resume()
         self._is_playing = True
+
+    def get_frame(self):
+        while self.frame < self.tod_len:
+            yield self.frame
+            self.frame += self.speed_mult
+
+    def set_slider(self, slider: tk.Scale):
+        if slider is not None:
+            self.slider = slider
+            self.slider_val = tk.DoubleVar()  # must use variable or else set() calls self.slider_update
+            self.slider.config(command=self.slider_update, variable=self.slider_val)
+
+    def slider_update(self, value: str):
+        self.frame = int(float(value) * self.tod_len)
+        if not self.is_playing:
+            # update the image
+            # could unpause-resume to avoid calling protected method?
+            self.ani._draw_frame(self.frame)
+
 
 
 # ============================================================================ #
