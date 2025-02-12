@@ -134,8 +134,9 @@ if __name__ == '__main__':
     # Create an animated scatter plot window which shows
     # each KID's DF as its colour which changes in time
     root = tk.Tk()
-    root.title("BLAST-TNG Kid Viewer")
+    root.title("BLAST-TNG KID Viewer")
 
+    # root children
     mainframe = ttk.Frame(root, padding="3 3 12 12")
 
     # mainframe children
@@ -165,19 +166,22 @@ if __name__ == '__main__':
     # ARRANGE LAYOUT
     # ============================================================================ #
 
+    # root children
     mainframe.grid(column=0, row=0)
 
+    # mainframe children
     title.grid(               column=0, row=0)
     kid_animation.canvas \
         .get_tk_widget().grid(column=0, row=1)
     slider.grid(              column=0, row=2, sticky='NWES')
     button_menu.grid(         column=0, row=3)
+
+    # button_menu children
     play_pause_btn.grid(column=0, row=0)
 
 
     # ============================================================================ #
-    # OPEN GUI
+    # START GUI LOOP
     # ============================================================================ #
 
-    # Start the GUI loop
     kid_animation.mainloop()
