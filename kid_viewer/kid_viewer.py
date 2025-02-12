@@ -12,10 +12,10 @@
 # IMPORTS
 # ============================================================================ #
 
-import tkinter as tk
-import numpy as np
 import os
+import numpy as np
 import pandas as pd
+import tkinter as tk
 from scatter_animation import AnimatedScatterPlot
 
 

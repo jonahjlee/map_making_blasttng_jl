@@ -14,10 +14,10 @@
 # ============================================================================ #
 
 import tkinter as tk
-from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
 import matplotlib.pyplot as plt
-from matplotlib.animation import FuncAnimation
 import matplotlib.colors as colors
+from matplotlib.animation import FuncAnimation
+from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
 import numpy as np
 
 
