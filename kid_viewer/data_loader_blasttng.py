@@ -12,6 +12,7 @@ import sys
 import os
 import numpy as np
 # modify PATH environment variable to access modules in other directory
+sys.path.append(os.path.join(os.getcwd(), '..'))
 sys.path.append(os.path.join(os.getcwd(), '..', 'map_maker_iterative'))
 from map_maker_iterative.mmi_config import RoachID, ScanPass
 from map_maker_iterative.mmi_roach import RoachPass
