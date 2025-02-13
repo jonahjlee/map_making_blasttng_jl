@@ -137,6 +137,10 @@ def main():
         np.save(os.path.join(dir_it, "combined_map"),
                 [xx, yy, combined_map])
 
+    # save shifts to file
+    np.save(os.path.join(dir_it, dir_xform, f'shifts_source.npy'),
+            shifts_source)
+
     print(f"Performing {ct_its} common-mode iterations: ")
 
     for iteration in range(1, ct_its + 1):
@@ -175,7 +179,7 @@ def main():
                     [xx, yy, combined_map])
 
         # save shifts to file
-        np.save(os.path.join(dir_it, dir_xform, f'shifts_source.npy'), 
+        np.save(os.path.join(dir_it, dir_xform, f'shifts_source.npy'),
                 shifts_source)
 
     print("Done.")

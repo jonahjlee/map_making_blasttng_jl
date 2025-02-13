@@ -24,17 +24,17 @@ class RoachID(Enum):
     ROACH_5 = 5
 
 roach_ids = [
-    RoachID.ROACH_1,
-    # RoachID.ROACH_2,
+    # RoachID.ROACH_1,
+    RoachID.ROACH_2,
     # RoachID.ROACH_3,
-    # RoachID.ROACH_4,
-    # RoachID.ROACH_5,
+    RoachID.ROACH_4,
+    RoachID.ROACH_5,
 ]
 
-pass_to_map = ScanPass.PASS_1_2
+pass_to_map = ScanPass.PASS_2
 
 # common-mode loop iterations
-ct_its = 3
+ct_its = 0
 
 maps_to_build = ['DF']  # options: ['A', 'P', 'DF']
 
