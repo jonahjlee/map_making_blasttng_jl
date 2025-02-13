@@ -100,17 +100,16 @@ def downsample(arr: np.ndarray, factor, allow_truncate=False):
 def get_file_names(roach: int, downsampled=False, source_shifts=True):
     """Get (layout_file, tod_file) for RCW-92 observation, all passes"""
     data_dir = os.path.join(os.getcwd(), 'data')
-    if roach in [1]:  # only works for roach 1 atm.
-        if source_shifts:
-            layout_file = os.path.normpath(
-                os.path.join(os.getcwd(),'..', 'detector_layouts', 'roach1_pass23_shifts.npy')
-            )
-        else:
-            layout_file = os.path.normpath(
-                os.path.join(os.getcwd(), '..', 'detector_layouts', 'layout_roach1.csv')
-            )
-        tod_file = os.path.join(data_dir, 'roach_1_all', f'norm_df_dict{"_ds_10" if downsampled else ""}.npy')
-        return layout_file, tod_file
+    if source_shifts:
+        layout_file = os.path.normpath(
+            os.path.join(os.getcwd(),'..', 'detector_layouts', f'roach{roach}_all_shifts.npy')
+        )
+    else:
+        layout_file = os.path.normpath(
+            os.path.join(os.getcwd(), '..', 'detector_layouts', f'layout_roach{roach}.csv')
+        )
+    tod_file = os.path.join(data_dir, f'roach_{roach}_all', f'norm_df_dict{"_ds_10" if downsampled else ""}.npy')
+    return layout_file, tod_file
 
 
 # ============================================================================ #
@@ -124,7 +123,7 @@ if __name__ == '__main__':
     # ============================================================================ #
 
     # Define file paths
-    layout_file, tod_file = get_file_names(roach=1, downsampled=False, source_shifts=True)
+    layout_file, tod_file = get_file_names(roach=1, downsampled=True, source_shifts=True)
 
     # Load KID Shifts
     shifts: dict[int, tuple[float, float]] = load_kid_layout(layout_file)
@@ -132,7 +131,7 @@ if __name__ == '__main__':
     # Load KID TODs
     kid_tods: dict[int, np.ndarray] = np.load(tod_file, allow_pickle=True).item()
 
-    down_sampled_tods = {kid:downsample(tod, 200, allow_truncate=True)
+    down_sampled_tods = {kid:downsample(tod, 20, allow_truncate=True)
                          for kid, tod in kid_tods.items()}
 
     # Only map KIDs both in layout and TODs

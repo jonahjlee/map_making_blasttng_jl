@@ -71,10 +71,10 @@ class AnimatedScatterPlot(tk.Frame):
             self.x_data,
             self.y_data,
             s=200, marker='h',
-            c=np.zeros(self.num_points), cmap="coolwarm",
-            norm=colors.SymLogNorm(0.001)
+            c=np.zeros(self.num_points), cmap="viridis",
+            vmin=-0.3, vmax=0.5
         )
-        self.colorbar = self.fig.colorbar(self.scatter)
+        # self.colorbar = self.fig.colorbar(self.scatter)
 
         self.canvas = FigureCanvasTkAgg(self.fig, master=self.parent)
         self.canvas.draw()
