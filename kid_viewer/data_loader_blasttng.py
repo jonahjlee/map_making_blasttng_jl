@@ -25,16 +25,46 @@ def get_df_dict(roach):
     return {int(kid):roach.get_kid_df(kid) for kid in roach.kids}
 
 
+def downsample(arr: np.ndarray, factor, allow_truncate=False):
+    assert arr.ndim == 1, "can only down-sample 1-d array"
+    if allow_truncate: arr = arr[:-(arr.size % factor)]
+    else: assert arr.size % factor == 0, "array length must be a multiple of down-sampling factor"
+    reshaped = np.reshape(arr, (-1, factor))
+    return reshaped.mean(axis=1)
+
+def process_npy_files(root_folder):
+    # Walk through all the directories and subdirectories
+    for root, dirs, files in os.walk(root_folder):
+        for file in files:
+            if file.endswith('.npy'):
+                # Construct the full file path
+                file_path = os.path.join(root, file)
+
+                # Load the dictionary from the .npy file
+                data = np.load(file_path, allow_pickle=True).item()
+
+                # Create a new dictionary by applying downsample to each key's value
+                downsampled_data = {key: downsample(value, 10) for key, value in data.items()}
+
+                # Construct the new file name with 'ds_10' appended
+                new_file_path = os.path.normpath(file_path.replace('.npy', '_ds_10.npy'))
+
+                # Save the new dictionary to the new file
+                np.save(new_file_path, downsampled_data)
+
+
 if __name__ == '__main__':
 
-    print('\nLoading RoachPass...')
-    roach = RoachPass(RoachID(1), ScanPass.ALL, use_rejects_file=False)
-    print(roach.info)
+    breakpoint()
 
-    out_dir = os.path.join(os.getcwd(), 'data', f'roach_{roach.id}_{roach.scan_pass.name.lower()}')
-    os.makedirs(out_dir, exist_ok=True)
-    print('Created output directory: ', out_dir)
-
-    norm_df_file = os.path.join(out_dir, 'norm_df_dict')
-    np.save(norm_df_file, get_norm_df_dict(roach))
-    print('\nSaved normalized DF dict to: ', norm_df_file)
+    # print('\nLoading RoachPass...')
+    # roach = RoachPass(RoachID(1), ScanPass.ALL, use_rejects_file=False)
+    # print(roach.info)
+    #
+    # out_dir = os.path.join(os.getcwd(), 'data', f'roach_{roach.id}_{roach.scan_pass.name.lower()}')
+    # os.makedirs(out_dir, exist_ok=True)
+    # print('Created output directory: ', out_dir)
+    #
+    # norm_df_file = os.path.join(out_dir, 'norm_df_dict')
+    # np.save(norm_df_file, get_norm_df_dict(roach))
+    # print('\nSaved normalized DF dict to: ', norm_df_file)
