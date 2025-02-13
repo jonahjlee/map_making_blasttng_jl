@@ -97,6 +97,22 @@ def downsample(arr: np.ndarray, factor, allow_truncate=False):
     return reshaped.mean(axis=1)
 
 
+def get_file_names(roach: int, downsampled=False, source_shifts=True):
+    """Get (layout_file, tod_file) for RCW-92 observation, all passes"""
+    data_dir = os.path.join(os.getcwd(), 'data')
+    if roach in [1]:  # only works for roach 1 atm.
+        if source_shifts:
+            layout_file = os.path.normpath(
+                os.path.join(os.getcwd(),'..', 'detector_layouts', 'roach1_pass23_shifts.npy')
+            )
+        else:
+            layout_file = os.path.normpath(
+                os.path.join(os.getcwd(), '..', 'detector_layouts', 'layout_roach1.csv')
+            )
+        tod_file = os.path.join(data_dir, 'roach_1_all', f'norm_df_dict{"_ds_10" if downsampled else ""}.npy')
+        return layout_file, tod_file
+
+
 # ============================================================================ #
 # ENTRY POINT
 # ============================================================================ #
@@ -107,15 +123,13 @@ if __name__ == '__main__':
     # LOAD & PROCESS DATA
     # ============================================================================ #
 
-    # Define Constants
-    # layout_file = os.path.join(os.getcwd(), '..', 'detector_layouts', 'layout_roach1.csv')
-    layout_file = os.path.normpath(os.path.join(os.getcwd(), '..', 'detector_layouts', 'roach1_pass23_shifts.npy'))
+    # Define file paths
+    layout_file, tod_file = get_file_names(roach=1, downsampled=False, source_shifts=True)
 
     # Load KID Shifts
     shifts: dict[int, tuple[float, float]] = load_kid_layout(layout_file)
 
     # Load KID TODs
-    tod_file = os.path.normpath(os.path.join(os.getcwd(), 'r1p3_norm_dfs.npy'))
     kid_tods: dict[int, np.ndarray] = np.load(tod_file, allow_pickle=True).item()
 
     down_sampled_tods = {kid:downsample(tod, 200, allow_truncate=True)
