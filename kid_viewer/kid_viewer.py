@@ -123,16 +123,35 @@ if __name__ == '__main__':
     # ============================================================================ #
 
     # Define file paths
-    layout_file, tod_file = get_file_names(roach=1, downsampled=True, source_shifts=True)
+    layout_file2, tod_file2 = get_file_names(roach=2, downsampled=True, source_shifts=True)
+    layout_file4, tod_file4 = get_file_names(roach=4, downsampled=True, source_shifts=True)
+    layout_file5, tod_file5 = get_file_names(roach=5, downsampled=True, source_shifts=True)
 
     # Load KID Shifts
-    shifts: dict[int, tuple[float, float]] = load_kid_layout(layout_file)
+    shifts2: dict[int, tuple[float, float]] = load_kid_layout(layout_file2)
+    shifts4: dict[int, tuple[float, float]] = load_kid_layout(layout_file4)
+    shifts5: dict[int, tuple[float, float]] = load_kid_layout(layout_file5)
 
     # Load KID TODs
-    kid_tods: dict[int, np.ndarray] = np.load(tod_file, allow_pickle=True).item()
+    tods2: dict[int, np.ndarray] = np.load(tod_file2, allow_pickle=True).item()
+    tods4: dict[int, np.ndarray] = np.load(tod_file4, allow_pickle=True).item()
+    tods5: dict[int, np.ndarray] = np.load(tod_file5, allow_pickle=True).item()
 
-    down_sampled_tods = {kid:downsample(tod, 20, allow_truncate=True)
-                         for kid, tod in kid_tods.items()}
+    # Combine ROACHES
+    # NOTE: Resulting indices are arbitrary and no longer correspond to KID ID.
+    #       This could be resolved by using strings instead of ints, e.g. "roach0_0000"
+    dict_idx = 0
+    shifts = {}
+    for val in shifts2.values(): shifts.update({dict_idx: val}); dict_idx += 1
+    for val in shifts4.values(): shifts.update({dict_idx: val}); dict_idx += 1
+    for val in shifts5.values(): shifts.update({dict_idx: val}); dict_idx += 1
+    dict_idx = 0
+    kid_tods = {}
+    for val in tods2.values(): kid_tods.update({dict_idx: val}); dict_idx += 1
+    for val in tods4.values(): kid_tods.update({dict_idx: val}); dict_idx += 1
+    for val in tods5.values(): kid_tods.update({dict_idx: val}); dict_idx += 1
+
+    down_sampled_tods = {kid:downsample(tod, 20, allow_truncate=True) for kid, tod in kid_tods.items()}
 
     # Only map KIDs both in layout and TODs
     common_kids = set(kid_tods.keys()).intersection(set(shifts.keys()))
@@ -153,10 +172,11 @@ if __name__ == '__main__':
     mainframe = ttk.Frame(root, padding="3 3 12 12")
 
     # mainframe children
-    title_text = (
-        f"Layout File: {layout_file}"
-        f"\nTOD File: {tod_file}"
-    )
+    # title_text = (
+    #     f"Layout File: {layout_file}"
+    #     f"\nTOD File: {tod_file}"
+    # )
+    title_text = "Combining ROACH 2, 4, 5"
     title = ttk.Label(mainframe, text=title_text)
     slider = ttk.Scale(mainframe, orient='horizontal')
     kid_animation = AnimatedScatterPlot(mainframe, shifts_common, kid_tods_common,
