@@ -33,7 +33,7 @@ def load_kid_layout(file, rejects_file=None):
     raise ValueError('Layout file must end with .csv or .npy')
 
 
-def load_kid_layout_csv(file, rejects_file=None) -> dict[int, tuple[float, float]]:
+def load_kid_layout_csv(file, rejects_file=None) -> dict[str, tuple[float, float]]:
     """Loads KID x/y coordinates on the image plane for a ROACH
 
     Returns a dictionary which maps KID IDs to coordinate pairs.
@@ -43,23 +43,20 @@ def load_kid_layout_csv(file, rejects_file=None) -> dict[int, tuple[float, float
 
         if rejects_file is not None:
             try:
-                rejects = np.astype(
-                    np.loadtxt(rejects_file, delimiter=' ', dtype=str),
-                    int
-                )
+                rejects = np.loadtxt(rejects_file, delimiter=' ', dtype=str),
                 df = df[~df.index.isin(rejects)]
             except FileNotFoundError as err:
                 print(f"File {rejects_file} not found")
                 raise err
 
-        return {kid: (df['x'][kid], df['y'][kid]) for kid in df.index}
+        return {str(kid): (df['x'][kid], df['y'][kid]) for kid in df.index}
 
     except FileNotFoundError as err:
         print(f"File {file} not found")
         raise err
 
 
-def load_kid_layout_npy(file, rejects_file=None) -> dict[int, tuple[float, float]]:
+def load_kid_layout_npy(file, rejects_file=None) -> dict[str, tuple[float, float]]:
     """Loads KID x/y coordinates on the image plane for a ROACH
 
     Returns a dictionary which maps KID IDs to coordinate pairs.
@@ -69,14 +66,16 @@ def load_kid_layout_npy(file, rejects_file=None) -> dict[int, tuple[float, float
 
         # parse keys in the form '0000' or 'roach1_0000'
         if isinstance(next(iter(layouts_dict.keys())), str):
-            layouts_dict = {int(key[-4:]): val for key, val in layouts_dict.items() if key in layouts_dict}
+            layouts_dict = {key[-4:]: val for key, val in layouts_dict.items()}
+        # parse keys in the form of ints
+        if isinstance(next(iter(layouts_dict.keys())), int):
+            layouts_dict = {f'{key:04}': val for key, val in layouts_dict.items()}
 
         if rejects_file is not None:
             try:
-                rejects = np.astype(
-                    np.loadtxt(rejects_file, delimiter=' ', dtype=str),
-                    int
-                )
+                rejects = np.loadtxt(rejects_file, delimiter=' ', dtype=str)
+                if isinstance(rejects[0], str): rejects = [key[-4:] for key in rejects]
+                if isinstance(rejects[0], int): rejects = [f'{key:04}' for key in rejects]
                 layouts_dict = {key: val for key, val in layouts_dict.items() if key in rejects}
             except FileNotFoundError as err:
                 print(f"File {rejects_file} not found")
@@ -111,10 +110,39 @@ def get_file_names(roach: int, downsampled=False, source_shifts=True):
     tod_file = os.path.join(data_dir, f'roach_{roach}_all', f'norm_df_dict{"_ds_10" if downsampled else ""}.npy')
     return layout_file, tod_file
 
+def get_250um_data():
+    global kid_shifts, kid_tods
+    # Define file paths
+    layout_file2, tod_file2 = get_file_names(roach=2, downsampled=True, source_shifts=True)
+    layout_file4, tod_file4 = get_file_names(roach=4, downsampled=True, source_shifts=True)
+    layout_file5, tod_file5 = get_file_names(roach=5, downsampled=True, source_shifts=True)
+    # Load KID Shifts
+    shifts2: dict[str, tuple[float, float]] = load_kid_layout(layout_file2)
+    shifts4: dict[str, tuple[float, float]] = load_kid_layout(layout_file4)
+    shifts5: dict[str, tuple[float, float]] = load_kid_layout(layout_file5)
+    # Load KID TODs
+    tods2: dict[str, np.ndarray] = np.load(tod_file2, allow_pickle=True).item()
+    tods4: dict[str, np.ndarray] = np.load(tod_file4, allow_pickle=True).item()
+    tods5: dict[str, np.ndarray] = np.load(tod_file5, allow_pickle=True).item()
+    # Make keys unique & combine
+    shifts2 = {'roach2_' + key: val for key, val in shifts2.items()}
+    shifts4 = {'roach4_' + key: val for key, val in shifts4.items()}
+    shifts5 = {'roach5_' + key: val for key, val in shifts5.items()}
+    tods2 = {'roach2_' + key: val for key, val in tods2.items()}
+    tods4 = {'roach4_' + key: val for key, val in tods4.items()}
+    tods5 = {'roach5_' + key: val for key, val in tods5.items()}
+    combined_shifts = {**shifts2, **shifts4, **shifts5}
+    combined_tods = {**tods2, **tods4, **tods5}
+
+    return combined_shifts, combined_tods
+
 
 # ============================================================================ #
 # ENTRY POINT
 # ============================================================================ #
+
+
+
 
 if __name__ == '__main__':
 
@@ -122,40 +150,17 @@ if __name__ == '__main__':
     # LOAD & PROCESS DATA
     # ============================================================================ #
 
-    # Define file paths
-    layout_file2, tod_file2 = get_file_names(roach=2, downsampled=True, source_shifts=True)
-    layout_file4, tod_file4 = get_file_names(roach=4, downsampled=True, source_shifts=True)
-    layout_file5, tod_file5 = get_file_names(roach=5, downsampled=True, source_shifts=True)
+    kid_shifts, kid_tods = get_250um_data()
 
-    # Load KID Shifts
-    shifts2: dict[int, tuple[float, float]] = load_kid_layout(layout_file2)
-    shifts4: dict[int, tuple[float, float]] = load_kid_layout(layout_file4)
-    shifts5: dict[int, tuple[float, float]] = load_kid_layout(layout_file5)
-
-    # Load KID TODs
-    tods2: dict[int, np.ndarray] = np.load(tod_file2, allow_pickle=True).item()
-    tods4: dict[int, np.ndarray] = np.load(tod_file4, allow_pickle=True).item()
-    tods5: dict[int, np.ndarray] = np.load(tod_file5, allow_pickle=True).item()
-
-    # Combine ROACHES
-    # NOTE: Resulting indices are arbitrary and no longer correspond to KID ID.
-    #       This could be resolved by using strings instead of ints, e.g. "roach0_0000"
-    dict_idx = 0
-    shifts = {}
-    for val in shifts2.values(): shifts.update({dict_idx: val}); dict_idx += 1
-    for val in shifts4.values(): shifts.update({dict_idx: val}); dict_idx += 1
-    for val in shifts5.values(): shifts.update({dict_idx: val}); dict_idx += 1
-    dict_idx = 0
-    kid_tods = {}
-    for val in tods2.values(): kid_tods.update({dict_idx: val}); dict_idx += 1
-    for val in tods4.values(): kid_tods.update({dict_idx: val}); dict_idx += 1
-    for val in tods5.values(): kid_tods.update({dict_idx: val}); dict_idx += 1
+    # layout_file, tod_file = get_file_names(roach=1, downsampled=True, source_shifts=True)
+    # kid_shifts = load_kid_layout(layout_file)
+    # kid_tods = np.load(tod_file, allow_pickle=True).item()
 
     down_sampled_tods = {kid:downsample(tod, 20, allow_truncate=True) for kid, tod in kid_tods.items()}
 
     # Only map KIDs both in layout and TODs
-    common_kids = set(kid_tods.keys()).intersection(set(shifts.keys()))
-    shifts_common = {key:val for key, val in shifts.items() if key in common_kids}
+    common_kids = set(kid_tods.keys()).intersection(set(kid_shifts.keys()))
+    shifts_common = {key:val for key, val in kid_shifts.items() if key in common_kids}
     kid_tods_common = {key:val for key, val in down_sampled_tods.items() if key in common_kids}
 
 
@@ -172,11 +177,11 @@ if __name__ == '__main__':
     mainframe = ttk.Frame(root, padding="3 3 12 12")
 
     # mainframe children
-    # title_text = (
-    #     f"Layout File: {layout_file}"
-    #     f"\nTOD File: {tod_file}"
-    # )
-    title_text = "Combining ROACH 2, 4, 5"
+    title_text = (
+        "ROACH 1"
+        f"\nLayout File: {layout_file}"
+        f"\nTOD File: {tod_file}"
+    )
     title = ttk.Label(mainframe, text=title_text)
     slider = ttk.Scale(mainframe, orient='horizontal')
     kid_animation = AnimatedScatterPlot(mainframe, shifts_common, kid_tods_common,

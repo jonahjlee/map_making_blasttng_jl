@@ -28,8 +28,8 @@ from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
 class AnimatedScatterPlot(tk.Frame):
     def __init__(self,
                  parent,
-                 positions: dict[int, tuple[float, float]],
-                 timestreams: dict[int, np.ndarray],
+                 positions: dict[str, tuple[float, float]],
+                 timestreams: dict[str, np.ndarray],
                  tick_ms: int,
                  speed_mult: int=1,
                  slider: tk.Scale=None,
@@ -40,8 +40,8 @@ class AnimatedScatterPlot(tk.Frame):
             "positions and timestreams must have the same keys"
 
         self.parent: tk.Tk = parent
-        self.positions: dict[int, tuple[float, float]] = positions
-        self.timestreams: dict[int, np.ndarray] = timestreams
+        self.positions: dict[str, tuple[float, float]] = positions
+        self.timestreams: dict[str, np.ndarray] = timestreams
         self.tick_ms: int = tick_ms
         self.speed_mult: int = speed_mult
 
@@ -52,7 +52,7 @@ class AnimatedScatterPlot(tk.Frame):
         self.num_points: int = len(positions)
         self.tod_len: int = len(next(iter(self.timestreams.values())))  # all timestreams have equal length
 
-        self.fig, self.ax = plt.subplots(figsize=(6, 5))
+        self.fig, self.ax = plt.subplots(figsize=(8, 6))
         self.fig.tight_layout()
         self.ax.set_aspect('equal')
 
@@ -70,11 +70,11 @@ class AnimatedScatterPlot(tk.Frame):
         self.scatter = self.ax.scatter(
             self.x_data,
             self.y_data,
-            s=200, marker='h',
+            s=350, marker='h',
             c=np.zeros(self.num_points), cmap="viridis",
             vmin=-0.3, vmax=0.5
         )
-        # self.colorbar = self.fig.colorbar(self.scatter)
+        self.colorbar = self.fig.colorbar(self.scatter)
 
         self.canvas = FigureCanvasTkAgg(self.fig, master=self.parent)
         self.canvas.draw()
