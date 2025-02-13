@@ -32,8 +32,9 @@ if __name__ == '__main__':
     print(roach.info)
 
     out_dir = os.path.join(os.getcwd(), 'data', f'roach_{roach.id}_{roach.scan_pass.name.lower()}')
+    os.makedirs(out_dir, exist_ok=True)
     print('Created output directory: ', out_dir)
 
-    norm_df_file = os.path.join(out_dir, 'norm_df_dict.npy')
+    norm_df_file = os.path.join(out_dir, 'norm_df_dict')
     np.save(norm_df_file, get_norm_df_dict(roach))
     print('\nSaved normalized DF dict to: ', norm_df_file)
