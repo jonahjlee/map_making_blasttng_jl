@@ -16,7 +16,7 @@ class ScanPass(Enum):
     ALL = 3       # PASS_2 + PASS_3 + PASS_3
     PASS_2_3 = 4  # PASS_3 + PASS_3
     def __eq__(self, other):
-        return isinstance(other, ScanPass) and self.value == other.value
+        return self.name == other.name and self.value == other.value
 
 class RoachID(Enum):
     ROACH_1 = 1
@@ -25,7 +25,7 @@ class RoachID(Enum):
     ROACH_4 = 4
     ROACH_5 = 5
     def __eq__(self, other):
-        return isinstance(other, ScanPass) and self.value == other.value
+        return self.name == other.name and self.value == other.value
 
 roach_ids = [
     RoachID.ROACH_1,
