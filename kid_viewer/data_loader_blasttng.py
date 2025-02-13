@@ -27,13 +27,13 @@ def get_df_dict(roach):
 
 if __name__ == '__main__':
 
+    print('\nLoading RoachPass...')
     roach = RoachPass(RoachID(1), ScanPass.ALL, use_rejects_file=False)
-    print('\nExporting data for provided RoachPass:')
     print(roach.info)
 
     out_dir = os.path.join(os.getcwd(), 'data', f'roach_{roach.id}_{roach.scan_pass.name.lower()}')
     print('Created output directory: ', out_dir)
 
-    norm_df_file = os.path.join(out_dir, 'norm_df_dict')
+    norm_df_file = os.path.join(out_dir, 'norm_df_dict.npy')
     np.save(norm_df_file, get_norm_df_dict(roach))
     print('\nSaved normalized DF dict to: ', norm_df_file)
