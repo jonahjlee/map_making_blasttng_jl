@@ -61,17 +61,20 @@ def process_npy_files(root_folder):
 
 if __name__ == '__main__':
 
-    breakpoint()
+    print('\nLoading RoachPass...')
+    roach = RoachPass(RoachID(1), ScanPass.ALL, use_rejects_file=False)
+    print(roach.info)
 
-    # print('\nLoading RoachPass...')
-    # roach = RoachPass(RoachID(1), ScanPass.ALL, use_rejects_file=False)
-    # print(roach.info)
-    #
-    # out_dir = os.path.join(os.getcwd(), 'data', f'roach_{roach.id}_{roach.scan_pass.name.lower()}')
-    # os.makedirs(out_dir, exist_ok=True)
-    # print('Created output directory: ', out_dir)
-    #
+    out_dir = os.path.join(os.getcwd(), 'data', f'roach_{roach.id}_{roach.scan_pass.name.lower()}')
+    os.makedirs(out_dir, exist_ok=True)
+    print('Created output directory: ', out_dir)
+
     # norm_df_file = os.path.join(out_dir, 'norm_df_dict_ds_10')
     # ds_by_10 = apply_to_values(get_norm_df_dict(roach), downsample, 10)
     # np.save(norm_df_file, ds_by_10)
     # print('\nSaved normalized DF dict to: ', norm_df_file)
+
+    x_um_file = os.path.join(out_dir, 'x_um.npy')
+    y_um_file = os.path.join(out_dir, 'y_um.npy')
+    np.save(roach.x_um, x_um_file)
+    np.save(roach.y_um, y_um_file)
