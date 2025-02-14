@@ -1,3 +1,13 @@
+# ============================================================================ #
+# helpers.py
+#
+# Jonah Lee
+#
+# Helper library for KID Viewer
+# Contains functions for loading TODs from local file system,
+# as well as other miscellaneous functions to clean up kid_viewer.py
+# ============================================================================ #
+
 import os
 from tkinter import ttk
 
