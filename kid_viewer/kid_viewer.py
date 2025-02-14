@@ -48,7 +48,7 @@ if __name__ == '__main__':
     common_mode = np.zeros(tod_len)
     for tod in kid_tods_common.values():
         common_mode += tod
-    common_mode /= tod_len
+    common_mode /= len(kid_tods_common)
 
     # Subtract common mode
     ct_removed_tods = {kid:kid_tod - common_mode for kid, kid_tod in kid_tods_common.items()}
