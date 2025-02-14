@@ -53,9 +53,11 @@ class AnimatedScatterPlot(tk.Frame):
         self.tod_len: int = len(next(iter(self.timestreams.values())))  # all timestreams have equal length
 
         self.fig, self.ax = plt.subplots(figsize=(8, 6))
-        self.ax.tick_params(bottom=False, left=False, labelbottom=False, labelleft=False)
-        self.ax.set_aspect('equal')
-        self.fig.tight_layout()
+        # self.ax.tick_params(bottom=False, left=False, labelbottom=False, labelleft=False)
+        # self.ax.set_aspect('equal')
+        # self.fig.set_facecolor('gray')
+        # self.fig.subplots_adjust(left=0.02, bottom=0, right=0.93, top=1.2)
+        # self.fig.tight_layout()
 
         self.x_data: list = [point[0] for point in self.positions.values()]
         self.y_data: list = [point[1] for point in self.positions.values()]
@@ -75,7 +77,7 @@ class AnimatedScatterPlot(tk.Frame):
             c=np.zeros(self.num_points), cmap="seismic",
             vmin=-0.5, vmax=0.5
         )
-        self.colorbar = self.fig.colorbar(self.scatter)
+        self.colorbar = self.fig.colorbar(self.scatter, fraction=0.046, pad=0.04)
 
         self.canvas = FigureCanvasTkAgg(self.fig, master=self.parent)
         self.canvas.draw()
