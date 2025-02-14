@@ -89,8 +89,6 @@ class AnimatedScatterPlot(tk.Frame):
         if self.slider is not None:
             self.slider_val.set(fraction_done)
 
-        # print(f'Index: {frame} / {self.tod_len} ({int(100 * fraction_done)}%)')
-
         self.scatter.set_array(
             np.array(self.color_vals(frame))
         )
