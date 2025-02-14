@@ -65,7 +65,7 @@ def get_250um_shifts() -> dict[str, tuple[float, float]]:
 # DATA LOADING
 # ============================================================================ #
 
-def load_kid_layout(file, rejects_file=None):
+def load_kid_layout(file, rejects_file=None) -> dict[str, tuple[float, float]]:
     if file.endswith('.csv'):
         return load_kid_layout_csv(file, rejects_file)
     if file.endswith('.npy'):
@@ -131,14 +131,14 @@ def load_kid_layout_csv(file, rejects_file=None) -> dict[str, tuple[float, float
 # MISCELLANEOUS
 # ============================================================================ #
 
-def downsample(arr: np.ndarray, factor, allow_truncate=False):
+def downsample(arr: np.ndarray, factor, allow_truncate=False) -> np.ndarray:
     assert arr.ndim == 1, "can only down-sample 1-d array"
     if allow_truncate: arr = arr[:-(arr.size % factor)]
     else: assert arr.size % factor == 0, "array length must be a multiple of down-sampling factor"
     reshaped = np.reshape(arr, (-1, factor))
     return reshaped.mean(axis=1)
 
-def toggle_playback(animation: AnimatedScatterPlot, button: ttk.Button):
+def toggle_playback(animation: AnimatedScatterPlot, button: ttk.Button) -> None:
     if animation.is_playing:
         animation.pause()
         button.config(text="Play")
