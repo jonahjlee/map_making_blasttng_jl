@@ -17,6 +17,8 @@ import numpy as np
 import pandas as pd
 import tkinter as tk
 from tkinter import ttk
+import matplotlib.pyplot as plt
+from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
 from scatter_animation import AnimatedScatterPlot
 
 
@@ -110,8 +112,8 @@ def get_file_names(roach: int, downsampled=False, source_shifts=True):
     tod_file = os.path.join(data_dir, f'roach_{roach}_all', f'norm_df_dict{"_ds_10" if downsampled else ""}.npy')
     return layout_file, tod_file
 
+
 def get_250um_data():
-    global kid_shifts, kid_tods
     # Define file paths
     layout_file2, tod_file2 = get_file_names(roach=2, downsampled=True, source_shifts=True)
     layout_file4, tod_file4 = get_file_names(roach=4, downsampled=True, source_shifts=True)
@@ -132,17 +134,26 @@ def get_250um_data():
     tods4 = {'roach4_' + key: val for key, val in tods4.items()}
     tods5 = {'roach5_' + key: val for key, val in tods5.items()}
     combined_shifts = {**shifts2, **shifts4, **shifts5}
+    # combined_shifts = np.load(
+    #     os.path.join(os.getcwd(), 'data', 'roach_245_pass_3', 'shifts_source_no_rejects.npy'),
+    #     allow_pickle=True
+    # ).item()
     combined_tods = {**tods2, **tods4, **tods5}
 
     return combined_shifts, combined_tods
 
 
+def toggle_playback(animation: AnimatedScatterPlot, button: ttk.Button):
+    if animation.is_playing:
+        animation.pause()
+        button.config(text="Play")
+    else:
+        animation.resume()
+        button.config(text="Pause")
+
 # ============================================================================ #
 # ENTRY POINT
 # ============================================================================ #
-
-
-
 
 if __name__ == '__main__':
 
@@ -160,16 +171,20 @@ if __name__ == '__main__':
 
     # Only map KIDs both in layout and TODs
     common_kids = set(kid_tods.keys()).intersection(set(kid_shifts.keys()))
-    shifts_common = {key:val for key, val in kid_shifts.items() if key in common_kids}
-    kid_tods_common = {key:val for key, val in down_sampled_tods.items() if key in common_kids}
+    shifts_common: dict[str, tuple[float, float]] = {key:val for key, val in kid_shifts.items() if key in common_kids}
+    kid_tods_common: dict[str, np.ndarray] = {key:val for key, val in down_sampled_tods.items() if key in common_kids}
 
+    tod_len = next(iter(kid_tods_common.values())).size
+    common_mode = np.zeros(tod_len)
+    for tod in kid_tods_common.values():
+        common_mode += tod
+    common_mode /= tod_len
+
+    ct_removed_tods = {kid:kid_tod - common_mode for kid, kid_tod in kid_tods_common.items()}
 
     # ============================================================================ #
     # BUILD GUI ELEMENTS
     # ============================================================================ #
-
-    # Create an animated scatter plot window which shows
-    # each KID's DF as its colour which changes in time
     root = tk.Tk()
     root.title("BLAST-TNG KID Viewer")
 
@@ -177,28 +192,31 @@ if __name__ == '__main__':
     mainframe = ttk.Frame(root, padding="3 3 12 12")
 
     # mainframe children
-    title_text = (
-        "ROACH 1"
-        f"\nLayout File: {layout_file}"
-        f"\nTOD File: {tod_file}"
-    )
-    title = ttk.Label(mainframe, text=title_text)
+    # title_text = (
+    #     "ROACH 1"
+    #     f"\nLayout File: {layout_file}"
+    #     f"\nTOD File: {tod_file}"
+    # )
+    title = ttk.Label(mainframe, text="")
     slider = ttk.Scale(mainframe, orient='horizontal')
-    kid_animation = AnimatedScatterPlot(mainframe, shifts_common, kid_tods_common,
+    kid_animation = AnimatedScatterPlot(mainframe, shifts_common, ct_removed_tods,
                                         tick_ms=1, speed_mult=1, slider=slider)
     button_menu = ttk.Frame(mainframe)
 
-    def toggle_playback(button):
-        if kid_animation.is_playing:
-            kid_animation.pause()
-            button.config(text="Play")
-        else:
-            kid_animation.resume()
-            button.config(text="Pause")
-
     # button_menu children
-    play_pause_btn = ttk.Button(button_menu, text="Pause", command=lambda: toggle_playback(play_pause_btn))
+    play_pause_btn = ttk.Button(button_menu, text="Pause",
+                                command=lambda: toggle_playback(kid_animation, play_pause_btn))
 
+    # Create a figure and axis
+    fig, ax = plt.subplots(figsize=(8, 1))
+    ax.plot(common_mode)
+    ax.margins(0)
+    for spine in ax.spines.values(): spine.set(linewidth=0)
+    fig.subplots_adjust(left=0, right=1, top=1, bottom=0)
+
+    # Create FigureCanvasTkAgg and embed the plot
+    canvas = FigureCanvasTkAgg(fig, master=mainframe)
+    canvas.get_tk_widget().grid(column=0, row=2)
 
     # ============================================================================ #
     # ARRANGE LAYOUT
@@ -208,14 +226,15 @@ if __name__ == '__main__':
     mainframe.grid(column=0, row=0)
 
     # mainframe children
-    title.grid(               column=0, row=0)
-    kid_animation.canvas \
-        .get_tk_widget().grid(column=0, row=1)
-    slider.grid(              column=0, row=2, sticky='NWES')
-    button_menu.grid(         column=0, row=3)
+    title.grid(column=0, row=0)
+    kid_animation.canvas.get_tk_widget().grid(column=0, row=1)
+    slider.grid(column=0, row=3, sticky='NWES')
+    button_menu.grid(column=0, row=4)
 
     # button_menu children
     play_pause_btn.grid(column=0, row=0)
+
+    root.mainloop()
 
 
     # ============================================================================ #

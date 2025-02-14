@@ -74,7 +74,7 @@ if __name__ == '__main__':
     # np.save(norm_df_file, ds_by_10)
     # print('\nSaved normalized DF dict to: ', norm_df_file)
 
-    x_um_file = os.path.join(out_dir, 'x_um.npy')
-    y_um_file = os.path.join(out_dir, 'y_um.npy')
-    np.save(roach.x_um, x_um_file)
-    np.save(roach.y_um, y_um_file)
+    x_az_file = os.path.join(out_dir, 'x_az.npy')
+    y_el_file = os.path.join(out_dir, 'y_el.npy')
+    np.save(roach.x_az, x_az_file)
+    np.save(roach.y_el, y_el_file)
