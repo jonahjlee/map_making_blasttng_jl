@@ -147,9 +147,10 @@ def toggle_playback(animation: AnimatedScatterPlot, button: ttk.Button) -> None:
         button.config(text="Pause")
 
 def common_mode_plot(common_mode: np.ndarray) -> Figure:
-    fig, ax = plt.subplots(figsize=(8, 1))
-    ax.plot(common_mode)
+    fig, ax = plt.subplots(figsize=(8, 2))
+    ax.plot(common_mode, label='common mode')
     ax.margins(0)
-    for spine in ax.spines.values(): spine.set(linewidth=0)
-    fig.subplots_adjust(left=0, right=1, top=1, bottom=0)
+    ax.grid(True)
+    ax.legend()
+    fig.subplots_adjust(left=0.1, right=.95, top=0.9, bottom=0.2)
     return fig

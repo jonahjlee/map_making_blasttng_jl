@@ -52,12 +52,10 @@ class AnimatedScatterPlot(tk.Frame):
         self.num_points: int = len(positions)
         self.tod_len: int = len(next(iter(self.timestreams.values())))  # all timestreams have equal length
 
-        self.fig, self.ax = plt.subplots(figsize=(8, 6))
-        # self.ax.tick_params(bottom=False, left=False, labelbottom=False, labelleft=False)
-        # self.ax.set_aspect('equal')
-        # self.fig.set_facecolor('gray')
-        # self.fig.subplots_adjust(left=0.02, bottom=0, right=0.93, top=1.2)
-        # self.fig.tight_layout()
+        self.fig, self.ax = plt.subplots(figsize=(8, 5))
+        self.fig.subplots_adjust(left=.1, bottom=.05, right=.9, top=.9)
+        self.ax.set_title(' DF Normalized to Calibration Lamp, Common-Mode Removed')
+        self.ax.set_facecolor('#DDD')
 
         self.x_data: list = [point[0] for point in self.positions.values()]
         self.y_data: list = [point[1] for point in self.positions.values()]
@@ -73,11 +71,12 @@ class AnimatedScatterPlot(tk.Frame):
         self.scatter = self.ax.scatter(
             self.x_data,
             self.y_data,
-            s=200, marker='h',
+            s=600, marker='h', alpha=0.8,
             c=np.zeros(self.num_points), cmap="seismic",
-            vmin=-0.5, vmax=0.5
+            vmin=-0.15, vmax=0.15
         )
-        self.colorbar = self.fig.colorbar(self.scatter, fraction=0.046, pad=0.04)
+        self.colorbar = self.fig.colorbar(self.scatter, label='Power\n'r'$\text{DF}(t)/\text{DF}_\text{cal} - C(t)$',
+                                          fraction=0.046, pad=0.04)
 
         self.canvas = FigureCanvasTkAgg(self.fig, master=self.parent)
         self.canvas.draw()
