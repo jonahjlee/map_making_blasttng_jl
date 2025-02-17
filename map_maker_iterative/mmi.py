@@ -75,9 +75,9 @@ def main():
         print(roaches[roach_id].info)
 
     # trigger common data loading
-    # for roach in roaches.values():
-    #     roach._load_master_data()
-    #     roach._load_target_sweeps()
+    for roach in roaches.values():
+        np.save(os.path.join(dir_out, f'roach{roach.id}_x_um.npy'), roach.x_um)
+        np.save(os.path.join(dir_out, f'roach{roach.id}_y_um.npy'), roach.y_um)
 
     print("Done.")
 
@@ -95,10 +95,7 @@ def main():
     # load array layout and pre-calculate map shifts from layout
     file_layout = os.path.join(dir_root, 'map_making', 'detector_layouts', 'layout_roach1.csv')
     dat_layout = dlib.abFromLayout(file_layout)
-    shifts_xy_layout = {
-        f"roach1_{int(kid):04}": (dat_layout[kid][0] / x_bin, dat_layout[kid][1] / y_bin)
-        for kid in dat_layout.keys()
-    }
+
 
     print("Done.")
 
@@ -140,7 +137,6 @@ def main():
         x_edges, y_edges,
         0,
         save_singles_func,
-        shifts_xy_layout
     )
 
     # output combined map to file
@@ -177,8 +173,7 @@ def main():
             xx, yy,
             x_edges, y_edges,
             common_mode,
-            save_singles_func,
-            shifts_xy_layout
+            save_singles_func
         )
 
         # output combined map to file
@@ -187,8 +182,10 @@ def main():
                     [xx, yy, combined_map])
 
         # save shifts to file
-        np.save(os.path.join(dir_it, dir_xform, f'shifts_source.npy'), 
+        np.save(os.path.join(dir_it, dir_xform, f'shifts_source.npy'),
                 shifts_source)
+        np.save(os.path.join(dir_it, dir_xform, f'source_xy.npy'),
+                source_xy)
 
     print("Done.")
     print(f"Time taken: {timer.deltat()}")

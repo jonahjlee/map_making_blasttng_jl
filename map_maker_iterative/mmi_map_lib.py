@@ -505,7 +505,7 @@ def combineMapsLoop(roach_iterable, cal_i_offset, cal_f_offset, xx, yy, x_edges,
             single_maps[kid_id] = zz
 
             # find the source's coords
-            xy = sourceCoords(xx, yy, zz) # x_im, y_im
+            xy = sourceCoords(xx, yy, zz) # x_um, y_um
             source_xy[kid_id] = xy
 
             # find shift required to center source in map
