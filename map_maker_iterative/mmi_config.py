@@ -24,8 +24,8 @@ class RoachID(Enum):
     ROACH_2 = 2
     ROACH_4 = 4
     ROACH_5 = 5
-    def __eq__(self, other):
-        return self.name == other.name and self.value == other.value
+    # def __eq__(self, other):
+    #     return self.name == other.name and self.value == other.value
 
 roach_ids = [
     RoachID.ROACH_1,
