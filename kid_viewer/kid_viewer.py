@@ -42,28 +42,32 @@ if __name__ == '__main__':
     # kid_tods: dict[str, np.ndarray] = hp.get_250um_tods()
     kid_shifts: dict[str, tuple[float, float]] = hp.get_single_roach_shifts(roach=1, source_shifts=True)
     kid_tods: dict[str, np.ndarray] = hp.get_single_roach_tods(roach=1, downsampled=True)
+    x_um, y_um = hp.get_source_offset_tods()
+    x_um = hp.downsample(x_um, 200, allow_truncate=True)
+    y_um = hp.downsample(y_um, 200, allow_truncate=True)
 
     # Downsample kid_tods by `factor`. Note: kid_tods may already be downsampled from native 477Hz
     down_sampled_tods = {kid: hp.downsample(tod, 20, allow_truncate=True) for kid, tod in kid_tods.items()}
 
     # Only map KIDs both in layout and TODs
-    common_kids = set(kid_tods.keys()).intersection(set(kid_shifts.keys()))
+    r1kids = np.load('data/roach1kids.npy', allow_pickle=True).item()
+    common_kids = set(kid_tods.keys()).intersection(set(kid_shifts.keys())).intersection(r1kids)
     shifts_common = {key:val for key, val in kid_shifts.items() if key in common_kids}
     kid_tods_common = {key:val for key, val in down_sampled_tods.items() if key in common_kids}
 
     # Compute common mode per roach (mean value in time)
     tod_len = next(iter(kid_tods_common.values())).size
     roach_sum_tods = {}
-    roach_tod_ct = {}
+    roach_tod_count = {}
     for kid_id, tod in kid_tods_common.items():
         roach_str = kid_id[:6]  # e.g. 'roach1'
         if roach_str not in roach_sum_tods:
             roach_sum_tods[roach_str] = np.zeros(tod_len)
-            roach_tod_ct[roach_str] = 1
+            roach_tod_count[roach_str] = 1
         else:
             roach_sum_tods[roach_str] += tod
-            roach_tod_ct[roach_str] += 1
-    roach_common_modes = {key:val/roach_tod_ct[key] for key, val in roach_sum_tods.items()}
+            roach_tod_count[roach_str] += 1
+    roach_common_modes = {key: val / roach_tod_count[key] for key, val in roach_sum_tods.items()}
 
     # common mode for all roaches
     common_mode = np.mean([val for val in roach_common_modes.values()], axis=0)
@@ -95,8 +99,8 @@ if __name__ == '__main__':
     # mainframe children
     title = ttk.Label(mainframe, text="BLAST-TNG KID VIEWER")  # TODO: generate informative header from config
     slider = ttk.Scale(mainframe, orient='horizontal')
-    kid_animation = AnimatedScatterPlot(mainframe, shifts_common, ct_removed_tods,
-                                        tick_ms=1, speed_mult=1, slider=slider)
+    kid_animation = AnimatedScatterPlot(mainframe, shifts_common, x_um, y_um, ct_removed_tods,
+                                        tick_ms=0, speed_mult=1, slider=slider)
     fig = hp.common_mode_plot(common_mode)
     canvas = FigureCanvasTkAgg(fig, master=mainframe)
     button_menu = ttk.Frame(mainframe)
