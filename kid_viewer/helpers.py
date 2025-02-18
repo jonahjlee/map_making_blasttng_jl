@@ -13,10 +13,7 @@ from tkinter import ttk
 
 import numpy as np
 import pandas as pd
-from astropy import units as u
-from astropy.coordinates import SkyCoord, EarthLocation, AltAz
-from astropy.wcs import WCS
-from astropy.time import Time
+
 
 import matplotlib.pyplot as plt
 from matplotlib.figure import Figure
@@ -143,54 +140,6 @@ def get_source_offset_tods():
 # COORDINATE CONVERSIONS
 # ============================================================================ #
 
-# inverted from mmi_map_lib.py
-def um_to_az_el_offsets(x_um, y_um, platescale=None):
-    """Converts micron offsets on image plane to az/el on-sky offsets"""
-    if platescale is None:
-        platescale = 5.9075e-6  # deg/um = 21.267 arcsec/mm
-
-    w = WCS(naxis=2)
-    w.wcs.crpix = [0, 0]  # center of the focal plane is tangent point
-    w.wcs.crval = [0., 0.]  # source is at center in offsets map
-    w.wcs.ctype = ["RA---TAN", "DEC--TAN"]
-    w.wcs.cdelt = [platescale, platescale]
-
-    x_deg, y_deg = w.wcs_pix2world(x_um, y_um, 0)
-
-    return x_deg, y_deg
-
-def az_el_offsets_to_ra_dec(x_az_tod, y_el_tod) -> SkyCoord:
-    """Convert az/el offsets from RCW 92 to on-sky (RA / Dec) coordinates"""
-    # telescope position during RCW 92 slice, see map-making slide 31
-    rcw_92_min_lat = -77.110
-    rcw_92_max_lat = -77.070
-    rcw_92_min_lon = 162.20
-    rcw_92_max_lon = 162.55
-    rcw_92_min_alt = 36030
-    rcw_92_max_alt = 36120
-    rcw_92_avg_lat = rcw_92_min_lat/2. + rcw_92_max_lat/2.
-    rcw_92_avg_lon = rcw_92_min_lon/2. + rcw_92_max_lon/2.
-    rcw_92_avg_alt = rcw_92_min_alt/2. + rcw_92_max_alt/2.
-
-    rcw92_coord = SkyCoord.from_name('RCW 92')
-
-    rcw_92_avg_location = EarthLocation(lat=rcw_92_avg_lat*u.deg, lon=rcw_92_avg_lon*u.deg, height=rcw_92_avg_alt*u.m)
-    # "At 6:10 PM local time on January 6 of [2020], BLAST-TNG began its first flight"
-    # subtract 13h for UTC offset
-    takeoff_time = Time("2020-01-06 5:10:00", scale='utc')
-    rcw_approx_time_after_takeoff = 43_000  # seconds
-    rcw_92_time = takeoff_time + rcw_approx_time_after_takeoff*u.s
-
-    # obtain absolute az/el
-    altaz_frame = AltAz(obstime=rcw_92_time, location=rcw_92_avg_location)
-    source_altaz = rcw92_coord.transform_to(altaz_frame)
-
-    abs_az = source_altaz.az + x_az_tod * u.deg * -1
-    abs_alt = source_altaz.alt + y_el_tod * u.deg * -1
-
-    # Assume balloon has not travelled enough over time to impact coordinate conversion
-    onsky_coords = SkyCoord(alt=abs_alt, az=abs_az, obstime=rcw_92_time, frame='altaz', location=rcw_92_avg_location)
-    return onsky_coords
 
 
 # ============================================================================ #

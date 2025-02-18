@@ -20,11 +20,11 @@ from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
 from scatter_animation import AnimatedScatterPlot
 import helpers as hp
 
-try:
-    import ttkthemes
-except ImportError:
-    print('Did not find module ttkthemes')
-    ttkthemes = None
+# try:
+#     import ttkthemes
+# except ImportError:
+#     print('Did not find module ttkthemes')
+ttkthemes = None
 
 
 # ============================================================================ #

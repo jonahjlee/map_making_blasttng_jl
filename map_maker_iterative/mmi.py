@@ -284,7 +284,7 @@ def genLog(log_file, log_dir):
 def makeBaseDir():
     '''Make base directory for this run.
     '''
-    
+
     # use timestamp as unique dir suffix
     suffix = genTimestamp()
 
@@ -293,7 +293,7 @@ def makeBaseDir():
     os.makedirs(dir_base)
 
     return dir_base
-    
+
 
 # ============================================================================ #
 # makeDirs
