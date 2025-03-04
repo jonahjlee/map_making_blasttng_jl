@@ -110,7 +110,7 @@ class AnimatedScatterPlot(tk.Frame):
         self.fig.subplots_adjust(left=.1, bottom=0.1, right=.9, top=.9)
         self.ax.set_xlabel('RA')
         self.ax.set_ylabel('Dec.')
-        self.ax.set_title('DF Normalized to Calibration Lamp, Common-Mode Removed')
+        self.ax.set_title('RCW-92 Observation at 500μm\nDF Normalized to Calibration Lamp, Common-Mode Removed')
         self.ax.set_facecolor('#DDD')
 
         self.x_vals = lambda i: [point[0] for point in self.position_offsets.values()] - x_um[i]
