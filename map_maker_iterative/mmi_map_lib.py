@@ -511,12 +511,12 @@ def combineMapsLoop(roach_iterable, cal_i_offset, cal_f_offset, xx, yy, x_edges,
             # find shift required to center source in map
             shifts_source[kid_id] = sourceCoordsToPixShift(xy[0], xy[1], xx, yy)
 
-            # use source determined shifts if not given as input
-            shifts = shifts_source if shifts is None else shifts
-
             # output single map to file
             if save_singles_func is not None:
                 save_singles_func(kid_id, np.array([xx, yy, zz]))
+
+    # use source determined shifts if not given as input
+    shifts = shifts_source if shifts is None else shifts
 
     # create combined map
     combined_map = combineMaps(kid_ids, single_maps, shifts)

@@ -13,7 +13,6 @@ import time
 from datetime import datetime
 import logging
 import tracemalloc
-
 import numpy as np
 
 from mmi_config import *
@@ -91,11 +90,6 @@ def main():
     xx, yy, x_bins, y_bins, x_edges, y_edges \
         = mlib.genMapAxesAndBins(roaches.values(), x_bin, y_bin)
 
-    # load array layout and pre-calculate map shifts from layout
-    file_layout = os.path.join(dir_root, 'map_making', 'detector_layouts', 'layout_roach1.csv')
-    dat_layout = dlib.abFromLayout(file_layout)
-
-
     print("Done.")
 
 
@@ -143,6 +137,10 @@ def main():
     if dir_out is not None:
         np.save(os.path.join(dir_it, "combined_map"),
                 [xx, yy, combined_map])
+
+    # save shifts to file
+    np.save(os.path.join(dir_it, dir_xform, f'shifts_source.npy'),
+            shifts_source)
 
     print(f"Performing {ct_its} common-mode iterations: ")
 
