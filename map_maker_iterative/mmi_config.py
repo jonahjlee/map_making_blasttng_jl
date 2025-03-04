@@ -10,11 +10,13 @@
 from enum import Enum
 
 class ScanPass(Enum):
-    PASS_0 = 0
-    PASS_1 = 1
-    PASS_2 = 2
-    ALL = 3       # PASS_0 + PASS_1 + PASS_2
-    PASS_1_2 = 4  # PASS_1 + PASS_2
+    PASS_1 = 0
+    PASS_2 = 1
+    PASS_3 = 2
+    ALL = 3       # PASS_2 + PASS_3 + PASS_3
+    PASS_2_3 = 4  # PASS_3 + PASS_3
+    def __eq__(self, other):
+        return self.name == other.name and self.value == other.value
 
 class RoachID(Enum):
     ROACH_1 = 1
@@ -22,6 +24,8 @@ class RoachID(Enum):
     ROACH_2 = 2
     ROACH_4 = 4
     ROACH_5 = 5
+    # def __eq__(self, other):
+    #     return self.name == other.name and self.value == other.value
 
 roach_ids = [
     # RoachID.ROACH_1,
@@ -31,7 +35,8 @@ roach_ids = [
     RoachID.ROACH_5,
 ]
 
-pass_to_map = ScanPass.PASS_2
+pass_to_map = ScanPass.PASS_2_3
+
 
 # common-mode loop iterations
 ct_its = 0

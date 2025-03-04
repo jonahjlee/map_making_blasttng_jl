@@ -3,7 +3,7 @@
 #
 # Jonah Lee
 #
-# Map Maker Iterative Roach Class
+# Map Maker Iterative RoachPass Class
 # Object representation of BLAST-TNG ROACH.
 # Computes and provides access to roach data for a specified pass of RCW-92.
 # ============================================================================ #
@@ -18,7 +18,7 @@ import mmi_map_lib as mlib
 import mmi_tod_lib as tlib
 
 
-class Roach:
+class RoachPass:
     """Object representation of BLAST-TNG ROACH.
 
     Computes and provides access to roach data for a specified pass of RCW-92.
@@ -69,7 +69,7 @@ class Roach:
         """Summary of info for this roach slice."""
         if self.scan_pass == ScanPass.ALL:
             pass_info = "all passes"
-        elif self.scan_pass == ScanPass.PASS_1_2:
+        elif self.scan_pass == ScanPass.PASS_2_3:
             pass_info = "pass 1 and 2"
         else:
             pass_info = f"pass {self.scan_pass.value + 1}/3"
@@ -110,11 +110,11 @@ class Roach:
         """
 
         if self.scan_pass == ScanPass.ALL:
-            slice_i = slice_i_dict[self.id] + pass_indices[ScanPass.PASS_0.value]  # pass 0 start
-            slice_f = slice_i_dict[self.id] + pass_indices[ScanPass.PASS_2.value + 1]  # pass 2 end
-        elif self.scan_pass == ScanPass.PASS_1_2:
             slice_i = slice_i_dict[self.id] + pass_indices[ScanPass.PASS_1.value]  # pass 1 start
-            slice_f = slice_i_dict[self.id] + pass_indices[ScanPass.PASS_2.value + 1]  # pass 2 end
+            slice_f = slice_i_dict[self.id] + pass_indices[ScanPass.PASS_3.value + 1]  # pass 3 end
+        elif self.scan_pass == ScanPass.PASS_2_3:
+            slice_i = slice_i_dict[self.id] + pass_indices[ScanPass.PASS_2.value]  # pass 2 start
+            slice_f = slice_i_dict[self.id] + pass_indices[ScanPass.PASS_3.value + 1]  # pass 3 end
         else:
             slice_i  = slice_i_dict[self.id] + pass_indices[self.scan_pass.value]  # pass start
             slice_f = slice_i_dict[self.id] + pass_indices[self.scan_pass.value + 1]  # pass end
@@ -187,5 +187,5 @@ class Roach:
 
 
 if __name__ == '__main__':
-    my_roach = Roach(RoachID.ROACH_1, ScanPass.ALL)
+    my_roach = RoachPass(RoachID.ROACH_1, ScanPass.ALL)
     print(my_roach.dat_sliced.keys())

@@ -17,7 +17,7 @@ import numpy as np
 
 from mmi_config import *
 import mmi_data_lib as dlib
-from mmi_roach import Roach
+from mmi_roach import RoachPass
 # import mmi_tod_lib as tlib
 import mmi_map_lib as mlib
 
@@ -68,14 +68,14 @@ def main():
     roaches = {}
 
     for roach_id in roach_ids:
-        roaches[roach_id] = Roach(roach_id, pass_to_map)
+        roaches[roach_id] = RoachPass(roach_id, pass_to_map)
         log.info(roaches[roach_id].info)
         print(roaches[roach_id].info)
 
     # trigger common data loading
-    # for roach in roaches.values():
-    #     roach._load_master_data()
-    #     roach._load_target_sweeps()
+    for roach in roaches.values():
+        np.save(os.path.join(dir_out, f'roach{roach.id}_x_um.npy'), roach.x_um)
+        np.save(os.path.join(dir_out, f'roach{roach.id}_y_um.npy'), roach.y_um)
 
     print("Done.")
 
@@ -99,9 +99,10 @@ def main():
 
     print(f"Loading KID data... ", end="", flush=True)
 
-    # moved into Roach.__init__ / Roach._load_kids()
+    # moved into RoachPass.__init__ / RoachPass._load_kids()
 
     print("Done.")
+    print(f"deltat: common loading done: {timer.deltat()}")
 
     breakpoint()
 
@@ -129,7 +130,7 @@ def main():
         xx, yy,
         x_edges, y_edges,
         0,
-        save_singles_func
+        save_singles_func,
     )
 
     # output combined map to file
@@ -181,6 +182,8 @@ def main():
         # save shifts to file
         np.save(os.path.join(dir_it, dir_xform, f'shifts_source.npy'),
                 shifts_source)
+        np.save(os.path.join(dir_it, dir_xform, f'source_xy.npy'),
+                source_xy)
 
     print("Done.")
     print(f"Time taken: {timer.deltat()}")
@@ -280,7 +283,7 @@ def genLog(log_file, log_dir):
 def makeBaseDir():
     '''Make base directory for this run.
     '''
-    
+
     # use timestamp as unique dir suffix
     suffix = genTimestamp()
 
@@ -289,7 +292,7 @@ def makeBaseDir():
     os.makedirs(dir_base)
 
     return dir_base
-    
+
 
 # ============================================================================ #
 # makeDirs
