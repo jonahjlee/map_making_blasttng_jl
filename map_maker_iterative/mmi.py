@@ -108,6 +108,7 @@ def main():
     # moved into RoachPass.__init__ / RoachPass._load_kids()
 
     print("Done.")
+    print(f"deltat: common loading done: {timer.deltat()}")
 
     breakpoint()
 
