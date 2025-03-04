@@ -5,7 +5,8 @@
 #
 # Data Loader
 # Load BLAST-TNG data from the HAA CCAT Control Computer into .npy files
-# for use in kid_viewer.py. Intended use is to
+# for use in kid_viewer.py. Intended use is to modify main code as needed to export
+# files required by kid_viewer.py, i.e. ROACH timestream dictionaries, offsets & master offset timestreams.
 # ============================================================================ #
 
 import sys
